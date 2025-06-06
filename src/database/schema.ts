@@ -5,43 +5,43 @@ export const comissionados = pgTable('comissionados', {
   id: uuid('id').primaryKey().defaultRandom(),
   nome: text('nome').notNull(),
   responsavel: text('responsavel'),
-  chave_pix: text('chave_pix'),
-  usa_conta_bancaria: boolean('usa_conta_bancaria').notNull().default(false),
+  chavePix: text('chave_pix'),
+  usaContaBancaria: boolean('usa_conta_bancaria').notNull().default(false),
   banco: text('banco'),
   agencia: text('agencia'),
   conta: text('conta'),
-  criado_em: timestamp('criado_em').notNull().defaultNow(),
-  atualizado_em: timestamp('atualizado_em'),
+  criadoEm: timestamp('criado_em').notNull().defaultNow(),
+  atualizadoEm: timestamp('atualizado_em'),
 });
 
 // Eventos
 export const eventos = pgTable('eventos', {
   id: uuid('id').primaryKey().defaultRandom(),
   nome: text('nome').notNull(),
-  data_inicio: text('data_inicio').notNull(),
-  data_fim: text('data_fim').notNull(),
+  dataInicio: text('data_inicio').notNull(),
+  dataFim: text('data_fim').notNull(),
   lucro: numeric('lucro', { precision: 12, scale: 2 }),
   status: text('status'),
-  criado_em: timestamp('criado_em').notNull().defaultNow(),
-  atualizado_em: timestamp('atualizado_em'),
+  criadoEm: timestamp('criado_em').notNull().defaultNow(),
+  atualizadoEm: timestamp('atualizado_em'),
 });
 
 // Lojas
 export const lojas = pgTable('lojas', {
   id: uuid('id').primaryKey().defaultRandom(),
   nome: text('nome').notNull(),
-  numero_documento: text('numero_documento').notNull(),
-  tipo_documento: text('tipo_documento').notNull(),
+  numeroDocumento: text('numero_documento').notNull(),
+  tipoDocumento: text('tipo_documento').notNull(),
   whatsapp: text('whatsapp'),
   cep: text('cep'),
   endereco: text('endereco'),
-  razao_social: text('razao_social'),
-  nome_responsavel: text('nome_responsavel'),
-  chave_pix: text('chave_pix'),
-  info_bancaria: text('info_bancaria'),
-  usa_taxas_personalizadas: boolean('usa_taxas_personalizadas').notNull().default(false),
-  criado_em: timestamp('criado_em').notNull().defaultNow(),
-  atualizado_em: timestamp('atualizado_em'),
+  razaoSocial: text('razao_social'),
+  nomeResponsavel: text('nome_responsavel'),
+  chavePix: text('chave_pix'),
+  infoBancaria: text('info_bancaria'),
+  usaTaxasPersonalizadas: boolean('usa_taxas_personalizadas').notNull().default(false),
+  criadoEm: timestamp('criado_em').notNull().defaultNow(),
+  atualizadoEm: timestamp('atualizado_em'),
 });
 
 // Taxas personalizadas por loja
@@ -49,17 +49,17 @@ export const taxasPersonalizadasLoja = pgTable(
   'taxas_personalizadas_loja',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    loja_id: uuid('loja_id').notNull(),
+    lojaId: uuid('loja_id').notNull(),
     dinheiro: numeric('dinheiro', { precision: 5, scale: 2 }),
     credito: numeric('credito', { precision: 5, scale: 2 }),
     debito: numeric('debito', { precision: 5, scale: 2 }),
     pix: numeric('pix', { precision: 5, scale: 2 }),
     antecipacao: numeric('antecipacao', { precision: 5, scale: 2 }),
-    criado_em: timestamp('criado_em').notNull().defaultNow(),
-    atualizado_em: timestamp('atualizado_em'),
+    criadoEm: timestamp('criado_em').notNull().defaultNow(),
+    atualizadoEm: timestamp('atualizado_em'),
   },
   table => ({
-    lojaIndex: uniqueIndex('unique_loja_id').on(table.loja_id),
+    lojaIndex: uniqueIndex('unique_loja_id').on(table.lojaId),
   }),
 );
 
@@ -68,16 +68,16 @@ export const taxasEvento = pgTable(
   'taxas_evento',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    evento_id: uuid('evento_id').notNull(),
+    eventoId: uuid('evento_id').notNull(),
     dinheiro: numeric('dinheiro', { precision: 5, scale: 2 }).notNull(),
     credito: numeric('credito', { precision: 5, scale: 2 }).notNull(),
     debito: numeric('debito', { precision: 5, scale: 2 }).notNull(),
     pix: numeric('pix', { precision: 5, scale: 2 }).notNull(),
     antecipacao: numeric('antecipacao', { precision: 5, scale: 2 }).notNull(),
-    criado_em: timestamp('criado_em').notNull().defaultNow(),
+    criadoEm: timestamp('criado_em').notNull().defaultNow(),
   },
   table => ({
-    eventoIndex: uniqueIndex('unique_evento_id').on(table.evento_id),
+    eventoIndex: uniqueIndex('unique_evento_id').on(table.eventoId),
   }),
 );
 
@@ -86,12 +86,12 @@ export const eventoLojas = pgTable(
   'evento_lojas',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    evento_id: uuid('evento_id').notNull(),
-    loja_id: uuid('loja_id').notNull(),
-    havera_antecipacao: boolean('havera_antecipacao').notNull().default(false),
+    eventoId: uuid('evento_id').notNull(),
+    lojaId: uuid('loja_id').notNull(),
+    haveraAntecipacao: boolean('havera_antecipacao').notNull().default(false),
   },
   table => ({
-    uniqueEventoLoja: uniqueIndex('unique_evento_loja').on(table.evento_id, table.loja_id),
+    uniqueEventoLoja: uniqueIndex('unique_evento_loja').on(table.eventoId, table.lojaId),
   }),
 );
 
@@ -100,12 +100,12 @@ export const eventoComissionados = pgTable(
   'evento_comissionados',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    evento_id: uuid('evento_id').notNull(),
-    comissionado_id: uuid('comissionado_id').notNull(),
+    eventoId: uuid('evento_id').notNull(),
+    comissionadoId: uuid('comissionado_id').notNull(),
     percentual: numeric('percentual', { precision: 5, scale: 2 }).notNull(),
   },
   table => ({
-    uniqueEventoComissionado: uniqueIndex('unique_evento_comissionado').on(table.evento_id, table.comissionado_id),
+    uniqueEventoComissionado: uniqueIndex('unique_evento_comissionado').on(table.eventoId, table.comissionadoId),
   }),
 );
 
@@ -114,23 +114,19 @@ export const transacoesDiarias = pgTable(
   'transacoes_diarias',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    evento_id: uuid('evento_id').notNull(),
-    loja_id: uuid('loja_id').notNull(),
-    data_transacao: text('data_transacao').notNull(),
+    eventoId: uuid('evento_id').notNull(),
+    lojaId: uuid('loja_id').notNull(),
+    dataTransacao: text('data_transacao').notNull(),
     dinheiro: numeric('dinheiro', { precision: 12, scale: 2 }).notNull().default('0'),
     debito: numeric('debito', { precision: 12, scale: 2 }).notNull().default('0'),
     credito: numeric('credito', { precision: 12, scale: 2 }).notNull().default('0'),
     pix: numeric('pix', { precision: 12, scale: 2 }).notNull().default('0'),
     status: text('status'),
-    criado_em: timestamp('criado_em').notNull().defaultNow(),
-    atualizado_em: timestamp('atualizado_em'),
+    criadoEm: timestamp('criado_em').notNull().defaultNow(),
+    atualizadoEm: timestamp('atualizado_em'),
   },
   table => ({
-    uniqueEventoLojaData: uniqueIndex('unique_evento_loja_data').on(
-      table.evento_id,
-      table.loja_id,
-      table.data_transacao,
-    ),
+    uniqueEventoLojaData: uniqueIndex('unique_evento_loja_data').on(table.eventoId, table.lojaId, table.dataTransacao),
   }),
 );
 
@@ -139,18 +135,18 @@ export const fechamentosEvento = pgTable(
   'fechamentos_evento',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    evento_id: uuid('evento_id').notNull(),
-    valor_total_evento: numeric('valor_total_evento', { precision: 14, scale: 2 }).notNull(),
-    valor_total_comissionados: numeric('valor_total_comissionados', { precision: 14, scale: 2 }).notNull(),
-    valor_total_pdvs: numeric('valor_total_pdvs', { precision: 14, scale: 2 }).notNull(),
-    valor_total_lojas: numeric('valor_total_lojas', { precision: 14, scale: 2 }).notNull(),
-    percentual_stone: numeric('percentual_stone', { precision: 5, scale: 2 }).notNull().default('0.0'),
-    valor_stone_sobre_pdvs: numeric('valor_stone_sobre_pdvs', { precision: 14, scale: 2 }).notNull(),
-    lucro_final_empresa: numeric('lucro_final_empresa', { precision: 14, scale: 2 }).notNull(),
-    criado_em: timestamp('criado_em').notNull().defaultNow(),
-    atualizado_em: timestamp('atualizado_em'),
+    eventoId: uuid('evento_id').notNull(),
+    valorTotalEvento: numeric('valor_total_evento', { precision: 14, scale: 2 }).notNull(),
+    valorTotalComissionados: numeric('valor_total_comissionados', { precision: 14, scale: 2 }).notNull(),
+    valorTotalPdvs: numeric('valor_total_pdvs', { precision: 14, scale: 2 }).notNull(),
+    valorTotalLojas: numeric('valor_total_lojas', { precision: 14, scale: 2 }).notNull(),
+    percentualStone: numeric('percentual_stone', { precision: 5, scale: 2 }).notNull().default('0.0'),
+    valorStoneSobrePdvs: numeric('valor_stone_sobre_pdvs', { precision: 14, scale: 2 }).notNull(),
+    lucroFinalEmpresa: numeric('lucro_final_empresa', { precision: 14, scale: 2 }).notNull(),
+    criadoEm: timestamp('criado_em').notNull().defaultNow(),
+    atualizadoEm: timestamp('atualizado_em'),
   },
   table => ({
-    uniqueEventoFechamento: uniqueIndex('unique_evento_id_fechamento').on(table.evento_id),
+    uniqueEventoFechamento: uniqueIndex('unique_evento_id_fechamento').on(table.eventoId),
   }),
 );
