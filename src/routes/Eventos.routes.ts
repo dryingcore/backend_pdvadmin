@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import EventsController from '../controllers/Events.controller';
+import EventsController from '../controllers/Eventos.controllers';
 
 export async function eventsRoutes(app: FastifyInstance) {
   const controller = new EventsController();

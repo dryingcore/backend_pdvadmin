@@ -1,5 +1,5 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { EventsService } from '../services/EventsService';
+import { EventsService } from '../services/Eventos.services';
 
 export default class EventsController {
   private readonly service = new EventsService();
