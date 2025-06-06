@@ -1,0 +1,19 @@
+{
+  "name": "backend_pdvadmin",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/pg": "^8.15.4",
+    "drizzle-kit": "^0.31.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.2",
+    "fastify": "^5.3.3",
+    "pg": "^8.16.0"
+  }
+}
