@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, boolean, numeric, date, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, boolean, timestamp, uniqueIndex, numeric } from 'drizzle-orm/pg-core';
 
 // Comissionados
 export const comissionados = pgTable('comissionados', {
@@ -18,9 +18,9 @@ export const comissionados = pgTable('comissionados', {
 export const eventos = pgTable('eventos', {
   id: uuid('id').primaryKey().defaultRandom(),
   nome: text('nome').notNull(),
-  data_inicio: date('data_inicio').notNull(),
-  data_fim: date('data_fim').notNull(),
-  lucro: numeric('lucro', { precision: 10, scale: 2 }),
+  data_inicio: text('data_inicio').notNull(),
+  data_fim: text('data_fim').notNull(),
+  lucro: numeric('lucro', { precision: 12, scale: 2 }),
   status: text('status'),
   criado_em: timestamp('criado_em').notNull().defaultNow(),
   atualizado_em: timestamp('atualizado_em'),
@@ -73,7 +73,7 @@ export const taxasEvento = pgTable(
     credito: numeric('credito', { precision: 5, scale: 2 }).notNull(),
     debito: numeric('debito', { precision: 5, scale: 2 }).notNull(),
     pix: numeric('pix', { precision: 5, scale: 2 }).notNull(),
-    antecipacao: numeric('antecipacao', { precision: 5, scale: 2 }).notNull().default('0'),
+    antecipacao: numeric('antecipacao', { precision: 5, scale: 2 }).notNull(),
     criado_em: timestamp('criado_em').notNull().defaultNow(),
   },
   table => ({
@@ -116,11 +116,11 @@ export const transacoesDiarias = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     evento_id: uuid('evento_id').notNull(),
     loja_id: uuid('loja_id').notNull(),
-    data_transacao: date('data_transacao').notNull(),
-    dinheiro: numeric('dinheiro', { precision: 10, scale: 2 }).notNull().default('0'),
-    debito: numeric('debito', { precision: 10, scale: 2 }).notNull().default('0'),
-    credito: numeric('credito', { precision: 10, scale: 2 }).notNull().default('0'),
-    pix: numeric('pix', { precision: 10, scale: 2 }).notNull().default('0'),
+    data_transacao: text('data_transacao').notNull(),
+    dinheiro: numeric('dinheiro', { precision: 12, scale: 2 }).notNull().default('0'),
+    debito: numeric('debito', { precision: 12, scale: 2 }).notNull().default('0'),
+    credito: numeric('credito', { precision: 12, scale: 2 }).notNull().default('0'),
+    pix: numeric('pix', { precision: 12, scale: 2 }).notNull().default('0'),
     status: text('status'),
     criado_em: timestamp('criado_em').notNull().defaultNow(),
     atualizado_em: timestamp('atualizado_em'),
@@ -140,13 +140,13 @@ export const fechamentosEvento = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     evento_id: uuid('evento_id').notNull(),
-    valor_total_evento: numeric('valor_total_evento', { precision: 12, scale: 2 }).notNull(),
-    valor_total_comissionados: numeric('valor_total_comissionados', { precision: 12, scale: 2 }).notNull(),
-    valor_total_pdvs: numeric('valor_total_pdvs', { precision: 12, scale: 2 }).notNull(),
-    valor_total_lojas: numeric('valor_total_lojas', { precision: 12, scale: 2 }).notNull(),
+    valor_total_evento: numeric('valor_total_evento', { precision: 14, scale: 2 }).notNull(),
+    valor_total_comissionados: numeric('valor_total_comissionados', { precision: 14, scale: 2 }).notNull(),
+    valor_total_pdvs: numeric('valor_total_pdvs', { precision: 14, scale: 2 }).notNull(),
+    valor_total_lojas: numeric('valor_total_lojas', { precision: 14, scale: 2 }).notNull(),
     percentual_stone: numeric('percentual_stone', { precision: 5, scale: 2 }).notNull().default('0.0'),
-    valor_stone_sobre_pdvs: numeric('valor_stone_sobre_pdvs', { precision: 12, scale: 2 }).notNull(),
-    lucro_final_empresa: numeric('lucro_final_empresa', { precision: 12, scale: 2 }).notNull(),
+    valor_stone_sobre_pdvs: numeric('valor_stone_sobre_pdvs', { precision: 14, scale: 2 }).notNull(),
+    lucro_final_empresa: numeric('lucro_final_empresa', { precision: 14, scale: 2 }).notNull(),
     criado_em: timestamp('criado_em').notNull().defaultNow(),
     atualizado_em: timestamp('atualizado_em'),
   },

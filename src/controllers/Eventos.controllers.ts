@@ -1,13 +1,24 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { EventsService } from '../services/Eventos.services';
+import { formatarDataBR } from '../utils/FormatarData.utils';
 
 export default class EventsController {
   private readonly service = new EventsService();
 
-  async listarTodos(_: FastifyRequest, reply: FastifyReply) {
+  async listarTodos(request: FastifyRequest<{ Querystring: { taxas?: string } }>, reply: FastifyReply) {
     try {
-      const eventos = await this.service.listarTodos();
-      return reply.send(eventos);
+      const incluirTaxas = request.query?.taxas?.toLowerCase() === 'true';
+      const eventos = incluirTaxas ? await this.service.listarTodosComTaxas() : await this.service.listarTodos();
+
+      const eventosComDataFormatada = eventos.map(evento => ({
+        ...evento,
+        data_inicio: formatarDataBR(evento.data_inicio),
+        data_fim: formatarDataBR(evento.data_fim),
+        criado_em: evento.criado_em ? formatarDataBR(evento.criado_em) : null,
+        atualizado_em: evento.atualizado_em ? formatarDataBR(evento.atualizado_em) : null,
+      }));
+
+      return reply.send(eventosComDataFormatada);
     } catch (err) {
       console.error(err);
       return reply.status(500).send({ error: 'Erro ao listar eventos' });
@@ -17,17 +28,35 @@ export default class EventsController {
   async criar(req: FastifyRequest, reply: FastifyReply) {
     try {
       const body = req.body as {
-        nome: string;
-        data_inicio: string;
-        data_fim: string;
-        status: string; // ✅ obrigatório agora
+        nome?: string;
+        data_inicio?: string;
+        data_fim?: string;
+        status?: string;
+        taxas?: {
+          dinheiro?: string;
+          debito?: string;
+          credito?: string;
+          pix?: string;
+          antecipacao?: string;
+        };
       };
 
+      if (!body) {
+        return reply.status(400).send({ error: 'Corpo da requisição ausente.' });
+      }
+
       const evento = await this.service.criarEvento({
-        nome: body.nome,
-        data_inicio: new Date(body.data_inicio),
-        data_fim: new Date(body.data_fim),
-        status: body.status,
+        nome: body.nome ?? '',
+        data_inicio: body.data_inicio ?? '',
+        data_fim: body.data_fim ?? '',
+        status: body.status ?? '',
+        taxas: {
+          dinheiro: body.taxas?.dinheiro ?? '',
+          debito: body.taxas?.debito ?? '',
+          credito: body.taxas?.credito ?? '',
+          pix: body.taxas?.pix ?? '',
+          antecipacao: body.taxas?.antecipacao ?? '',
+        },
       });
 
       return reply.code(201).send(evento);
@@ -55,18 +84,37 @@ export default class EventsController {
   async atualizar(req: FastifyRequest, reply: FastifyReply) {
     try {
       const { id } = req.params as { id: string };
+
       const body = req.body as {
-        nome: string;
-        data_inicio: string;
-        data_fim: string;
-        status: string;
+        nome?: string;
+        data_inicio?: string;
+        data_fim?: string;
+        status?: string;
+        taxas?: {
+          dinheiro?: string;
+          debito?: string;
+          credito?: string;
+          pix?: string;
+          antecipacao?: string;
+        };
       };
 
+      if (!body) {
+        return reply.status(400).send({ error: 'Corpo da requisição ausente.' });
+      }
+
       const eventoAtualizado = await this.service.atualizarEvento(id, {
-        nome: body.nome,
-        data_inicio: new Date(body.data_inicio),
-        data_fim: new Date(body.data_fim),
-        status: body.status,
+        nome: body.nome ?? '',
+        data_inicio: body.data_inicio ?? '',
+        data_fim: body.data_fim ?? '',
+        status: body.status ?? '',
+        taxas: {
+          dinheiro: body.taxas?.dinheiro ?? '',
+          debito: body.taxas?.debito ?? '',
+          credito: body.taxas?.credito ?? '',
+          pix: body.taxas?.pix ?? '',
+          antecipacao: body.taxas?.antecipacao ?? '',
+        },
       });
 
       return reply.send(eventoAtualizado);

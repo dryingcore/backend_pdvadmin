@@ -8,6 +8,13 @@
       "when": 1749167931410,
       "tag": "0000_cheerful_santa_claus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1749214613541,
+      "tag": "0001_futuristic_power_man",
+      "breakpoints": true
     }
   ]
 }
