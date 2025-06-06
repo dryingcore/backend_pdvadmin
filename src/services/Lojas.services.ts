@@ -43,16 +43,16 @@ export class LojasService {
   }) {
     const novaLoja = {
       nome: data.nome,
-      numero_documento: data.numero_documento,
-      tipo_documento: data.tipo_documento,
+      numeroDocumento: data.numero_documento,
+      tipoDocumento: data.tipo_documento,
       whatsapp: data.whatsapp ?? '',
       cep: data.cep ?? '',
       endereco: data.endereco ?? '',
-      razao_social: data.razao_social ?? '',
-      nome_responsavel: data.nome_responsavel ?? '',
-      chave_pix: data.chave_pix ?? '',
-      info_bancaria: data.info_bancaria ?? '',
-      usa_taxas_personalizadas: data.usa_taxas_personalizadas ?? false,
+      razaoSocial: data.razao_social ?? '',
+      nomeResponsavel: data.nome_responsavel ?? '',
+      chavePix: data.chave_pix ?? '',
+      infoBancaria: data.info_bancaria ?? '',
+      usaTaxasPersonalizadas: data.usa_taxas_personalizadas ?? false,
     };
 
     const resultado = await db.insert(lojas).values(novaLoja).returning();
@@ -67,14 +67,16 @@ export class LojasService {
         throw new Error('Taxas personalizadas devem ser fornecidas quando usa_taxas_personalizadas é true.');
       }
 
-      await db.insert(taxasPersonalizadasLoja).values({
+      const novaTaxa: typeof taxasPersonalizadasLoja.$inferInsert = {
         lojaId: lojaCriada.id,
-        dinheiro: Number(data.taxas.dinheiro),
-        debito: Number(data.taxas.debito),
-        credito: Number(data.taxas.credito),
-        pix: Number(data.taxas.pix),
-        antecipacao: Number(data.taxas.antecipacao),
-      });
+        dinheiro: data.taxas.dinheiro,
+        debito: data.taxas.debito,
+        credito: data.taxas.credito,
+        pix: data.taxas.pix,
+        antecipacao: data.taxas.antecipacao,
+      };
+
+      await db.insert(taxasPersonalizadasLoja).values(novaTaxa);
     }
 
     return lojaCriada;
@@ -96,10 +98,22 @@ export class LojasService {
       usa_taxas_personalizadas?: boolean;
     }>,
   ) {
-    await db
-      .update(lojas)
-      .set({ ...data, atualizado_em: new Date() })
-      .where(eq(lojas.id, id));
+    const valoresAtualizados: typeof lojas.$inferInsert = {
+      ...(data.nome !== undefined && { nome: data.nome }),
+      ...(data.numero_documento !== undefined && { numeroDocumento: data.numero_documento }),
+      ...(data.tipo_documento !== undefined && { tipoDocumento: data.tipo_documento }),
+      ...(data.whatsapp !== undefined && { whatsapp: data.whatsapp }),
+      ...(data.cep !== undefined && { cep: data.cep }),
+      ...(data.endereco !== undefined && { endereco: data.endereco }),
+      ...(data.razao_social !== undefined && { razaoSocial: data.razao_social }),
+      ...(data.nome_responsavel !== undefined && { nomeResponsavel: data.nome_responsavel }),
+      ...(data.chave_pix !== undefined && { chavePix: data.chave_pix }),
+      ...(data.info_bancaria !== undefined && { infoBancaria: data.info_bancaria }),
+      ...(data.usa_taxas_personalizadas !== undefined && { usaTaxasPersonalizadas: data.usa_taxas_personalizadas }),
+      atualizadoEm: new Date(),
+    } as any;
+
+    await db.update(lojas).set(valoresAtualizados).where(eq(lojas.id, id));
 
     return this.buscarPorId(id);
   }

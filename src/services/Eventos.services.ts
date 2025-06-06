@@ -27,18 +27,18 @@ export class EventsService {
       .select({
         id: eventos.id,
         nome: eventos.nome,
-        data_inicio: eventos.data_inicio,
-        data_fim: eventos.data_fim,
+        dataInicio: eventos.dataInicio,
+        dataFim: eventos.dataFim,
         status: eventos.status,
-        criado_em: eventos.criado_em,
-        atualizado_em: eventos.atualizado_em,
-        taxa_credito: taxasEvento.credito,
-        taxa_debito: taxasEvento.debito,
-        taxa_pix: taxasEvento.pix,
-        taxa_antecipacao: taxasEvento.antecipacao,
+        criadoEm: eventos.criadoEm,
+        atualizadoEm: eventos.atualizadoEm,
+        taxaCredito: taxasEvento.credito,
+        taxaDebito: taxasEvento.debito,
+        taxaPix: taxasEvento.pix,
+        taxaAntecipacao: taxasEvento.antecipacao,
       })
       .from(eventos)
-      .leftJoin(taxasEvento, eq(eventos.id, taxasEvento.evento_id));
+      .leftJoin(taxasEvento, eq(eventos.id, taxasEvento.eventoId));
   }
 
   async criarEvento(input: CriarEventoInput) {
@@ -69,8 +69,8 @@ export class EventsService {
 
     const novoEvento: typeof eventos.$inferInsert = {
       nome: nome.trim(),
-      data_inicio,
-      data_fim,
+      dataInicio: data_inicio,
+      dataFim: data_fim,
       status: status.trim(),
     };
 
@@ -82,7 +82,7 @@ export class EventsService {
     }
 
     await db.insert(taxasEvento).values({
-      evento_id: eventoCriado.id,
+      eventoId: eventoCriado.id,
       dinheiro: taxas.dinheiro,
       debito: taxas.debito,
       credito: taxas.credito,
@@ -131,8 +131,8 @@ export class EventsService {
 
     const dadosAtualizados: typeof eventos.$inferInsert = {
       nome: nome.trim(),
-      data_inicio,
-      data_fim,
+      dataInicio: data_inicio,
+      dataFim: data_fim,
       status: status.trim(),
     };
 
@@ -147,10 +147,10 @@ export class EventsService {
       throw new Error('Erro ao atualizar evento: retorno inesperado do banco.');
     }
 
-    await db.delete(taxasEvento).where(eq(taxasEvento.evento_id, id));
+    await db.delete(taxasEvento).where(eq(taxasEvento.eventoId, id));
 
     await db.insert(taxasEvento).values({
-      evento_id: id,
+      eventoId: id,
       dinheiro: taxas.dinheiro,
       debito: taxas.debito,
       credito: taxas.credito,

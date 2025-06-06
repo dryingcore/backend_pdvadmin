@@ -14,11 +14,11 @@ import {
 // Evento → Comissionados
 export const eventoComissionadosRelations = relations(eventoComissionados, ({ one }) => ({
   evento: one(eventos, {
-    fields: [eventoComissionados.evento_id],
+    fields: [eventoComissionados.eventoId],
     references: [eventos.id],
   }),
   comissionado: one(comissionados, {
-    fields: [eventoComissionados.comissionado_id],
+    fields: [eventoComissionados.comissionadoId],
     references: [comissionados.id],
   }),
 }));
@@ -26,11 +26,11 @@ export const eventoComissionadosRelations = relations(eventoComissionados, ({ on
 // Evento → Lojas
 export const eventoLojasRelations = relations(eventoLojas, ({ one }) => ({
   evento: one(eventos, {
-    fields: [eventoLojas.evento_id],
+    fields: [eventoLojas.eventoId],
     references: [eventos.id],
   }),
   loja: one(lojas, {
-    fields: [eventoLojas.loja_id],
+    fields: [eventoLojas.lojaId],
     references: [lojas.id],
   }),
 }));
@@ -38,7 +38,7 @@ export const eventoLojasRelations = relations(eventoLojas, ({ one }) => ({
 // Loja → Taxas Personalizadas
 export const taxasPersonalizadasRelations = relations(taxasPersonalizadasLoja, ({ one }) => ({
   loja: one(lojas, {
-    fields: [taxasPersonalizadasLoja.loja_id],
+    fields: [taxasPersonalizadasLoja.lojaId],
     references: [lojas.id],
   }),
 }));
@@ -46,7 +46,7 @@ export const taxasPersonalizadasRelations = relations(taxasPersonalizadasLoja, (
 // Evento → Taxas
 export const taxasEventoRelations = relations(taxasEvento, ({ one }) => ({
   evento: one(eventos, {
-    fields: [taxasEvento.evento_id],
+    fields: [taxasEvento.eventoId],
     references: [eventos.id],
   }),
 }));
@@ -54,11 +54,11 @@ export const taxasEventoRelations = relations(taxasEvento, ({ one }) => ({
 // Transações Diárias → Evento / Loja
 export const transacoesDiariasRelations = relations(transacoesDiarias, ({ one }) => ({
   evento: one(eventos, {
-    fields: [transacoesDiarias.evento_id],
+    fields: [transacoesDiarias.eventoId],
     references: [eventos.id],
   }),
   loja: one(lojas, {
-    fields: [transacoesDiarias.loja_id],
+    fields: [transacoesDiarias.lojaId],
     references: [lojas.id],
   }),
 }));
@@ -66,7 +66,7 @@ export const transacoesDiariasRelations = relations(transacoesDiarias, ({ one })
 // Fechamento → Evento
 export const fechamentoEventoRelations = relations(fechamentosEvento, ({ one }) => ({
   evento: one(eventos, {
-    fields: [fechamentosEvento.evento_id],
+    fields: [fechamentosEvento.eventoId],
     references: [eventos.id],
   }),
 }));
