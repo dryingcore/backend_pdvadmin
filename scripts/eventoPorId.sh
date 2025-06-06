@@ -1,1 +1,0 @@
-curl -X GET http://localhost:3000/eventos/a66c0491-733f-4eab-bc18-a923e48f0f1a
