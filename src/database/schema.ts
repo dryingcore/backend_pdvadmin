@@ -14,6 +14,25 @@ export const comissionados = pgTable('comissionados', {
   atualizadoEm: timestamp('atualizado_em'),
 });
 
+// taxas por gateway
+export const taxasPorGateway = pgTable(
+  'taxas_pagamento_gateway',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    eventoId: uuid('evento_id').notNull(),
+    gateway: text('gateway').notNull(), // "Stone", "PagSeguro", etc.
+    modalidade: text('modalidade').notNull(), // "credito", "debito", "pix" etc.
+    percentual: numeric('percentual', { precision: 5, scale: 2 }).notNull(),
+  },
+  table => ({
+    uniquePorEvento: uniqueIndex('unique_evento_gateway_modalidade').on(
+      table.eventoId,
+      table.gateway,
+      table.modalidade,
+    ),
+  }),
+);
+
 // Eventos
 export const eventos = pgTable('eventos', {
   id: uuid('id').primaryKey().defaultRandom(),

@@ -12,10 +12,10 @@ export default class EventsController {
 
       const eventosComDataFormatada = eventos.map(evento => ({
         ...evento,
-        dataInicio: formatarDataBR(evento.dataInicio),
-        dataFim: formatarDataBR(evento.dataFim),
-        criadoEm: evento.criadoEm ? formatarDataBR(evento.criadoEm) : null,
-        atualizadoEm: evento.atualizadoEm ? formatarDataBR(evento.atualizadoEm) : null,
+        data_inicio: formatarDataBR(evento.dataInicio),
+        data_fim: formatarDataBR(evento.dataFim),
+        criado_em: evento.criadoEm ? formatarDataBR(evento.criadoEm) : null,
+        atualizado_em: evento.atualizadoEm ? formatarDataBR(evento.atualizadoEm) : null,
       }));
 
       return reply.send(eventosComDataFormatada);

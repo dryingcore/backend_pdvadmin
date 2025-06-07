@@ -4,9 +4,10 @@ import { LojasService } from '../services/Lojas.services';
 export default class LojasController {
   private readonly service = new LojasService();
 
-  async listarTodas(_: FastifyRequest, reply: FastifyReply) {
+  async listarTodas(request: FastifyRequest<{ Querystring: { taxas?: string } }>, reply: FastifyReply) {
     try {
-      const lojas = await this.service.listarTodas();
+      const incluirTaxas = request.query?.taxas?.toLowerCase() === 'true';
+      const lojas = incluirTaxas ? await this.service.listarTodosComTaxas() : await this.service.listarTodas();
       return reply.send(lojas);
     } catch (err) {
       console.error(err);
@@ -25,9 +26,9 @@ export default class LojasController {
     }
   }
 
-  async criar(req: FastifyRequest, reply: FastifyReply) {
+  async criar(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const body = req.body as {
+      const body = request.body as {
         nome: string;
         numero_documento: string;
         tipo_documento: string;
@@ -54,13 +55,14 @@ export default class LojasController {
       const { id } = req.params as { id: string };
       const body = req.body as Partial<{
         nome: string;
-        cnpj: string;
+        numero_documento?: string;
+        tipo_documento?: string;
         whatsapp?: string;
         cep?: string;
         endereco?: string;
-        conta_bancaria?: string;
-        pix?: string;
-        taxa_especial?: boolean;
+        info_bancaria?: string;
+        chave_pix?: string;
+        usa_taxas_personalizadas?: boolean;
         taxas?: {
           dinheiro?: string;
           debito?: string;

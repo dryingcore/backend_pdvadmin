@@ -7,6 +7,21 @@ export class LojasService {
     return db.select().from(lojas);
   }
 
+  async listarTodosComTaxas() {
+    const resultado = await db
+      .select({
+        loja: lojas,
+        taxas: taxasPersonalizadasLoja,
+      })
+      .from(lojas)
+      .leftJoin(taxasPersonalizadasLoja, eq(lojas.id, taxasPersonalizadasLoja.lojaId));
+
+    return resultado.map(({ loja, taxas }) => ({
+      ...loja,
+      taxasPersonalizadas: taxas ?? null,
+    }));
+  }
+
   async buscarPorId(id: string) {
     const [loja] = await db.select().from(lojas).where(eq(lojas.id, id));
     if (!loja) throw new Error('Loja não encontrada');
