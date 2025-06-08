@@ -12,16 +12,43 @@ export default class EventsController {
 
       const eventosComDataFormatada = eventos.map(evento => ({
         ...evento,
-        data_inicio: formatarDataBR(evento.dataInicio),
-        data_fim: formatarDataBR(evento.dataFim),
-        criado_em: evento.criadoEm ? formatarDataBR(evento.criadoEm) : null,
-        atualizado_em: evento.atualizadoEm ? formatarDataBR(evento.atualizadoEm) : null,
+        dataInicio: formatarDataBR(evento.dataInicio),
+        dataFim: formatarDataBR(evento.dataFim),
+        criadoEm: evento.criadoEm ? formatarDataBR(evento.criadoEm) : null,
+        atualizadoEm: evento.atualizadoEm ? formatarDataBR(evento.atualizadoEm) : null,
       }));
 
       return reply.send(eventosComDataFormatada);
     } catch (err) {
       console.error(err);
       return reply.status(500).send({ error: 'Erro ao listar eventos' });
+    }
+  }
+
+  async buscarComTaxasPorId(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { id } = req.params as { id: string };
+
+      const evento = await this.service.listarComTaxasPorId(id);
+
+      if (!evento) {
+        return reply.status(404).send({ error: 'Evento não encontrado' });
+      }
+
+      const eventoComDataFormatada = {
+        ...evento,
+        data_inicio: formatarDataBR(evento.data_inicio),
+        data_fim: formatarDataBR(evento.data_fim),
+        criado_em: evento.criado_em ? formatarDataBR(evento.criado_em) : null,
+        atualizado_em: evento.atualizado_em ? formatarDataBR(evento.atualizado_em) : null,
+      };
+
+      return reply.send(eventoComDataFormatada);
+    } catch (err) {
+      console.error(err);
+      return reply.status(500).send({
+        error: err instanceof Error ? err.message : 'Erro ao buscar evento com taxas',
+      });
     }
   }
 
@@ -39,6 +66,7 @@ export default class EventsController {
           pix?: string;
           antecipacao?: string;
         };
+        lojas?: { id: string; havera_antecipacao?: boolean }[];
       };
 
       if (!body) {
@@ -57,6 +85,7 @@ export default class EventsController {
           pix: body.taxas?.pix ?? '',
           antecipacao: body.taxas?.antecipacao ?? '',
         },
+        lojas: body.lojas ?? [],
       });
 
       return reply.code(201).send(evento);
@@ -97,6 +126,7 @@ export default class EventsController {
           pix?: string;
           antecipacao?: string;
         };
+        lojas?: { id: string; havera_antecipacao?: boolean }[];
       };
 
       if (!body) {
@@ -115,6 +145,7 @@ export default class EventsController {
           pix: body.taxas?.pix ?? '',
           antecipacao: body.taxas?.antecipacao ?? '',
         },
+        lojas: body.lojas ?? [],
       });
 
       return reply.send(eventoAtualizado);

@@ -8,6 +8,13 @@
     "@types/pg": "^8.15.4",
     "drizzle-kit": "^0.31.1"
   },
+  "scripts": {
+    "start": "bun index.ts",
+    "recreate-schema": "bunx drizzle-kit generate",
+    "push-schema": "bunx drizzle-kit push",
+    "force-push-schema": "bunx drizzle-kit push --force",
+    "get-schema": "bunx drizzle-kit introspect"
+  },
   "peerDependencies": {
     "typescript": "^5"
   },
