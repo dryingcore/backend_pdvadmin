@@ -2,7 +2,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { EventsService } from '../services/Eventos.services';
 import { formatarDataBR } from '../utils/FormatarData.utils';
 
-export default class EventsController {
+export default class EventosController {
   private readonly service = new EventsService();
 
   async listarTodos(request: FastifyRequest<{ Querystring: { taxas?: string } }>, reply: FastifyReply) {

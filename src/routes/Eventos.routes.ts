@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import EventsController from '../controllers/Eventos.controllers';
+import EventosController from '../controllers/Eventos.controllers';
 
 export async function eventsRoutes(app: FastifyInstance) {
-  const controller = new EventsController();
+  const controller = new EventosController();
 
   app.get('/eventos', controller.listarTodos.bind(controller));
   app.get('/eventos/:id/com-taxas', controller.buscarComTaxasPorId.bind(controller));
