@@ -25,6 +25,17 @@ export default class EventosController {
     }
   }
 
+  async buscarEventosDetalhados(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+    try {
+      const { id } = request.params;
+      const evento = await this.service.getEventoCompleto(id);
+      return reply.send(evento);
+    } catch (err) {
+      console.error(err);
+      return reply.status(400).send({ error: (err as Error).message });
+    }
+  }
+
   async buscarComTaxasPorId(req: FastifyRequest, reply: FastifyReply) {
     try {
       const { id } = req.params as { id: string };
@@ -67,6 +78,7 @@ export default class EventosController {
           antecipacao?: string;
         };
         lojas?: { id: string; havera_antecipacao?: boolean }[];
+        comissionados?: { id: string; percentual: string }[];
       };
 
       if (!body) {
@@ -86,6 +98,7 @@ export default class EventosController {
           antecipacao: body.taxas?.antecipacao ?? '',
         },
         lojas: body.lojas ?? [],
+        comissionados: body.comissionados ?? [],
       });
 
       return reply.code(201).send(evento);
@@ -127,6 +140,7 @@ export default class EventosController {
           antecipacao?: string;
         };
         lojas?: { id: string; havera_antecipacao?: boolean }[];
+        comissionados?: { id: string; percentual: string }[];
       };
 
       if (!body) {
@@ -146,6 +160,7 @@ export default class EventosController {
           antecipacao: body.taxas?.antecipacao ?? '',
         },
         lojas: body.lojas ?? [],
+        comissionados: body.comissionados ?? [],
       });
 
       return reply.send(eventoAtualizado);

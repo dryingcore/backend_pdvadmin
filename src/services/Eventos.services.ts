@@ -1,11 +1,24 @@
 import { db } from '../database/db';
-import { eventos, taxasEvento, eventoLojas } from '../database/schema';
-import { eq } from 'drizzle-orm';
+import {
+  eventos,
+  taxasEvento,
+  eventoLojas,
+  eventoComissionados,
+  taxasPersonalizadasLoja,
+  comissionados,
+  lojas,
+} from '../database/schema';
+import { eq, inArray } from 'drizzle-orm';
 import { validarData, validarValorMonetario, dataEhMenorOuIgual } from '../helpers/Validacao.helpers';
 
 interface LojaEventoInput {
   id: string;
   havera_antecipacao?: boolean;
+}
+
+interface ComissionadoEventoInput {
+  id: string;
+  percentual: string;
 }
 
 interface CriarEventoInput {
@@ -21,6 +34,7 @@ interface CriarEventoInput {
     antecipacao: string;
   };
   lojas: LojaEventoInput[];
+  comissionados: ComissionadoEventoInput[];
 }
 
 export class EventsService {
@@ -72,12 +86,105 @@ export class EventsService {
     return resultado[0];
   }
 
+  async getEventoCompleto(id: string) {
+    if (!id) throw new Error('ID do evento é obrigatório');
+
+    // Evento + taxas do evento
+    const [eventoBase] = await db
+      .select({
+        id: eventos.id,
+        nome: eventos.nome,
+        data_inicio: eventos.dataInicio,
+        data_fim: eventos.dataFim,
+        status: eventos.status,
+        taxas_evento: {
+          dinheiro: taxasEvento.dinheiro,
+          debito: taxasEvento.debito,
+          credito: taxasEvento.credito,
+          pix: taxasEvento.pix,
+          antecipacao: taxasEvento.antecipacao,
+        },
+      })
+      .from(eventos)
+      .leftJoin(taxasEvento, eq(eventos.id, taxasEvento.eventoId))
+      .where(eq(eventos.id, id));
+
+    if (!eventoBase) throw new Error('Evento não encontrado');
+
+    // Buscar lojas do evento
+    const lojasRelacionadas = await db
+      .select({
+        id: eventoLojas.lojaId,
+        nome: lojas.nome,
+        havera_antecipacao: eventoLojas.haveraAntecipacao,
+        usa_taxas_personalizadas: lojas.usaTaxasPersonalizadas,
+      })
+      .from(eventoLojas)
+      .innerJoin(lojas, eq(eventoLojas.lojaId, lojas.id))
+      .where(eq(eventoLojas.eventoId, id));
+
+    // Buscar todas as taxas personalizadas de lojas envolvidas
+    const lojasIds = lojasRelacionadas.map(loja => loja.id);
+
+    const taxasDasLojas = await db
+      .select({
+        lojaId: taxasPersonalizadasLoja.lojaId,
+        dinheiro: taxasPersonalizadasLoja.dinheiro,
+        debito: taxasPersonalizadasLoja.debito,
+        credito: taxasPersonalizadasLoja.credito,
+        pix: taxasPersonalizadasLoja.pix,
+        antecipacao: taxasPersonalizadasLoja.antecipacao,
+      })
+      .from(taxasPersonalizadasLoja)
+      .where(inArray(taxasPersonalizadasLoja.lojaId, lojasIds));
+
+    const taxasMapeadas = new Map(
+      taxasDasLojas.map(taxa => [
+        taxa.lojaId,
+        {
+          dinheiro: taxa.dinheiro,
+          debito: taxa.debito,
+          credito: taxa.credito,
+          pix: taxa.pix,
+          antecipacao: taxa.antecipacao,
+        },
+      ]),
+    );
+
+    // Comissionados
+    const comissionadosDoEvento = await db
+      .select({
+        id: comissionados.id,
+        nome: comissionados.nome,
+        percentual: eventoComissionados.percentual,
+      })
+      .from(eventoComissionados)
+      .innerJoin(comissionados, eq(eventoComissionados.comissionadoId, comissionados.id))
+      .where(eq(eventoComissionados.eventoId, id));
+
+    return {
+      id: eventoBase.id,
+      nome: eventoBase.nome,
+      data_inicio: eventoBase.data_inicio,
+      data_fim: eventoBase.data_fim,
+      status: eventoBase.status,
+      taxas_evento: eventoBase.taxas_evento,
+      lojas: lojasRelacionadas.map(loja => ({
+        id: loja.id,
+        nome: loja.nome,
+        havera_antecipacao: loja.havera_antecipacao,
+        taxas_personalizadas: loja.usa_taxas_personalizadas ? taxasMapeadas.get(loja.id) : undefined,
+      })),
+      comissionados: comissionadosDoEvento,
+    };
+  }
+
   async criarEvento(input: CriarEventoInput) {
     if (!input || typeof input !== 'object') throw new Error('Dados do evento ausentes ou inválidos.');
 
-    const { nome, data_inicio, data_fim, status, taxas, lojas } = input;
+    const { nome, data_inicio, data_fim, status, taxas, lojas, comissionados } = input;
 
-    // Validações
+    // Validações principais
     if (typeof nome !== 'string' || !nome.trim()) throw new Error('Nome do evento é obrigatório.');
     if (typeof data_inicio !== 'string' || !validarData(data_inicio)) throw new Error('Data de início inválida.');
     if (typeof data_fim !== 'string' || !validarData(data_fim)) throw new Error('Data de fim inválida.');
@@ -100,9 +207,16 @@ export class EventsService {
       }
     }
 
+    // Validação de comissionados
+    if (!Array.isArray(comissionados)) throw new Error('Lista de comissionados inválida.');
+    for (const com of comissionados) {
+      if (typeof com.id !== 'string' || !com.id.trim() || typeof com.percentual !== 'string') {
+        throw new Error(`Comissionado inválido: ${JSON.stringify(com)}`);
+      }
+    }
+
     // Transação completa
     return await db.transaction(async trx => {
-      // 1. Criar evento
       const [evento] = await trx
         .insert(eventos)
         .values({
@@ -115,7 +229,6 @@ export class EventsService {
 
       if (!evento?.id) throw new Error('Erro ao criar evento.');
 
-      // 2. Inserir taxas
       await trx.insert(taxasEvento).values({
         eventoId: evento.id,
         dinheiro: taxas.dinheiro,
@@ -125,7 +238,6 @@ export class EventsService {
         antecipacao: taxas.antecipacao,
       });
 
-      // 3. Inserir lojas no evento
       const lojasEvento = lojas.map(loja => ({
         eventoId: evento.id,
         lojaId: loja.id,
@@ -133,6 +245,14 @@ export class EventsService {
       }));
 
       await trx.insert(eventoLojas).values(lojasEvento);
+
+      const comissionadosEvento = comissionados.map(com => ({
+        eventoId: evento.id,
+        comissionadoId: com.id,
+        percentual: com.percentual.toString(),
+      }));
+
+      await trx.insert(eventoComissionados).values(comissionadosEvento);
 
       return evento;
     });
@@ -151,9 +271,8 @@ export class EventsService {
     if (typeof id !== 'string' || !id.trim()) throw new Error('ID é obrigatório.');
     if (!input || typeof input !== 'object') throw new Error('Dados do evento ausentes ou inválidos.');
 
-    const { nome, data_inicio, data_fim, status, taxas, lojas } = input;
+    const { nome, data_inicio, data_fim, status, taxas, lojas, comissionados } = input;
 
-    // Validações
     if (typeof nome !== 'string' || !nome.trim()) throw new Error('Nome do evento é obrigatório.');
     if (typeof data_inicio !== 'string' || !validarData(data_inicio)) throw new Error('Data de início inválida.');
     if (typeof data_fim !== 'string' || !validarData(data_fim)) throw new Error('Data de fim inválida.');
@@ -163,7 +282,6 @@ export class EventsService {
     if (!status || typeof status !== 'string' || !status.trim()) {
       throw new Error('Status do evento é obrigatório.');
     }
-    if (!taxas || typeof taxas !== 'object') throw new Error('Taxas do evento são obrigatórias.');
     if (!Array.isArray(lojas) || lojas.length === 0) {
       throw new Error('Pelo menos uma loja deve ser vinculada ao evento.');
     }
@@ -176,9 +294,20 @@ export class EventsService {
       }
     }
 
-    // Transação completa
+    if (!Array.isArray(comissionados)) throw new Error('Lista de comissionados inválida.');
+    for (const com of comissionados) {
+      if (
+        typeof com.id !== 'string' ||
+        !com.id.trim() ||
+        typeof com.percentual !== 'number' ||
+        com.percentual < 0 ||
+        com.percentual > 100
+      ) {
+        throw new Error(`Comissionado inválido: ${JSON.stringify(com)}`);
+      }
+    }
+
     return await db.transaction(async trx => {
-      // Atualizar evento
       const [evento] = await trx
         .update(eventos)
         .set({
@@ -192,7 +321,6 @@ export class EventsService {
 
       if (!evento?.id) throw new Error('Erro ao atualizar evento.');
 
-      // Atualizar taxas
       await trx.delete(taxasEvento).where(eq(taxasEvento.eventoId, id));
       await trx.insert(taxasEvento).values({
         eventoId: id,
@@ -203,16 +331,21 @@ export class EventsService {
         antecipacao: taxas.antecipacao,
       });
 
-      // Atualizar lojas vinculadas
       await trx.delete(eventoLojas).where(eq(eventoLojas.eventoId, id));
-
       const lojasEvento = lojas.map(loja => ({
         eventoId: id,
         lojaId: loja.id,
         haveraAntecipacao: Boolean(loja.havera_antecipacao),
       }));
-
       await trx.insert(eventoLojas).values(lojasEvento);
+
+      await trx.delete(eventoComissionados).where(eq(eventoComissionados.eventoId, id));
+      const comissionadosEvento = comissionados.map(com => ({
+        eventoId: id,
+        comissionadoId: com.id,
+        percentual: com.percentual.toString(),
+      }));
+      await trx.insert(eventoComissionados).values(comissionadosEvento);
 
       return evento;
     });

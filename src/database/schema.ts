@@ -14,22 +14,26 @@ export const comissionados = pgTable('comissionados', {
   atualizadoEm: timestamp('atualizado_em'),
 });
 
-// taxas por gateway
-export const taxasPorGateway = pgTable(
-  'taxas_pagamento_gateway',
+export const taxasGateway = pgTable('taxas_gateway', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  gateway: text('gateway').notNull(), // "Stone", "PagSeguro", etc.
+
+  debito: numeric('debito', { precision: 5, scale: 2 }).notNull(),
+  credito: numeric('credito', { precision: 5, scale: 2 }).notNull(),
+  pix: numeric('pix', { precision: 5, scale: 2 }).notNull(),
+  dinheiro: numeric('dinheiro', { precision: 5, scale: 2 }).notNull(),
+  antecipacao: numeric('antecipacao', { precision: 5, scale: 2 }).notNull(),
+});
+
+export const taxasGatewayEvento = pgTable(
+  'taxas_gateway_evento',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     eventoId: uuid('evento_id').notNull(),
-    gateway: text('gateway').notNull(), // "Stone", "PagSeguro", etc.
-    modalidade: text('modalidade').notNull(), // "credito", "debito", "pix" etc.
-    percentual: numeric('percentual', { precision: 5, scale: 2 }).notNull(),
+    taxaId: uuid('taxa_id').notNull(), // FK para taxas_gateway.id
   },
   table => ({
-    uniquePorEvento: uniqueIndex('unique_evento_gateway_modalidade').on(
-      table.eventoId,
-      table.gateway,
-      table.modalidade,
-    ),
+    uniqueEventoGateway: uniqueIndex('unique_evento_gateway').on(table.eventoId),
   }),
 );
 
