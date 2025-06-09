@@ -79,6 +79,7 @@ export default class EventosController {
         };
         lojas?: { id: string; havera_antecipacao?: boolean }[];
         comissionados?: { id: string; percentual: string }[];
+        taxas_por_gateway?: { id: string }; // <- CORRIGIDO AQUI
       };
 
       if (!body) {
@@ -99,6 +100,7 @@ export default class EventosController {
         },
         lojas: body.lojas ?? [],
         comissionados: body.comissionados ?? [],
+        taxas_por_gateway: body.taxas_por_gateway ?? undefined, // <- CORRIGIDO AQUI
       });
 
       return reply.code(201).send(evento);
@@ -141,6 +143,7 @@ export default class EventosController {
         };
         lojas?: { id: string; havera_antecipacao?: boolean }[];
         comissionados?: { id: string; percentual: string }[];
+        taxas_por_gateway?: { id: string }; // <- CORRIGIDO PARA OBJETO ÚNICO
       };
 
       if (!body) {
@@ -161,6 +164,7 @@ export default class EventosController {
         },
         lojas: body.lojas ?? [],
         comissionados: body.comissionados ?? [],
+        taxas_por_gateway: body.taxas_por_gateway ?? undefined, // <- CORRIGIDO AQUI
       });
 
       return reply.send(eventoAtualizado);
