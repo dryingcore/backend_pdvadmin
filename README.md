@@ -28,3 +28,23 @@ valor final destinado às lojas (PDVs). O cálculo é descrito nos campos abaixo
   "formula_repasse_pdvs": "(total_geral - total_comissoes) - total_taxas_pdvs"
 }
 ```
+
+Cada loja também possui um repasse individual disponível no campo `repasse_loja`,
+onde cada chave corresponde ao `id` da loja e o valor detalha o montante
+repassado por modalidade (dinheiro, débito, crédito e pix) e o total final.
+
+Exemplo:
+
+```json
+{
+  "repasse_loja": {
+    "loja-123": {
+      "dinheiro": 100.0,
+      "debito": 50.0,
+      "credito": 30.0,
+      "pix": 20.0,
+      "total": 200.0
+    }
+  }
+}
+```
