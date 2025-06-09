@@ -1,5 +1,11 @@
 import { db } from '../database/db';
-import { transacoesDiarias, eventoComissionados, taxasEvento, taxasGatewayEvento } from '../database/schema';
+import {
+  transacoesDiarias,
+  eventoComissionados,
+  taxasEvento,
+  taxasGatewayEvento,
+  taxasGateway,
+} from '../database/schema';
 import { eq } from 'drizzle-orm';
 
 export class FechamentoEventoService {
@@ -10,7 +16,16 @@ export class FechamentoEventoService {
 
     const [taxasPdvs] = await db.select().from(taxasEvento).where(eq(taxasEvento.eventoId, eventoId));
 
-    const [taxasStone] = await db.select().from(taxasGatewayEvento).where(eq(taxasGatewayEvento.eventoId, eventoId));
+    const [taxasStone] = await db
+      .select({
+        dinheiro: taxasGateway.dinheiro,
+        debito: taxasGateway.debito,
+        credito: taxasGateway.credito,
+        pix: taxasGateway.pix,
+      })
+      .from(taxasGatewayEvento)
+      .innerJoin(taxasGateway, eq(taxasGatewayEvento.taxaId, taxasGateway.id))
+      .where(eq(taxasGatewayEvento.eventoId, eventoId));
 
     const porLoja: Record<string, any> = {};
     let totalGeral = 0;
@@ -54,10 +69,10 @@ function calcularTaxasTotais(lojas: Record<string, any>, taxas: any) {
   return Object.values(lojas).reduce((acc, loja) => {
     return (
       acc +
-      loja.dinheiro * (Number(taxas.dinheiro) || 0) +
-      loja.debito * (Number(taxas.debito) || 0) +
-      loja.credito * (Number(taxas.credito) || 0) +
-      loja.pix * (Number(taxas.pix) || 0)
+      loja.dinheiro * (Number(taxas?.dinheiro ?? 0) / 100) +
+      loja.debito * (Number(taxas?.debito ?? 0) / 100) +
+      loja.credito * (Number(taxas?.credito ?? 0) / 100) +
+      loja.pix * (Number(taxas?.pix ?? 0) / 100)
     );
   }, 0);
 }
