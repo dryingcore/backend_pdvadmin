@@ -27,81 +27,89 @@ export class FechamentoEventoService {
       .innerJoin(taxasGateway, eq(taxasGatewayEvento.taxaId, taxasGateway.id))
       .where(eq(taxasGatewayEvento.eventoId, eventoId));
 
+    const percentualComissaoTotal = comissionados.reduce((soma, c) => soma + Number(c.percentual), 0);
+    const fatorComissao = 1 - percentualComissaoTotal / 100;
+
     const porLoja: Record<string, any> = {};
     let totalGeral = 0;
+    let totalComissoes = 0;
+    let totalTaxasPdvs = 0;
+    let totalTaxasStone = 0;
+    let lucroPdvs = 0;
+
+    const repassePorLoja: Record<string, number> = {};
 
     for (const t of transacoes) {
       const loja = (porLoja[t.lojaId] ??= { dinheiro: 0, debito: 0, credito: 0, pix: 0 });
-      loja.dinheiro += Number(t.dinheiro);
-      loja.debito += Number(t.debito);
-      loja.credito += Number(t.credito);
-      loja.pix += Number(t.pix);
-      totalGeral += Number(t.dinheiro) + Number(t.debito) + Number(t.credito) + Number(t.pix);
-    }
 
-    // Comissionamento
-    const totalComissoes = comissionados.reduce((total, c) => total + totalGeral * (Number(c.percentual) / 100), 0);
+      // Valores brutos
+      const bruto = {
+        dinheiro: Number(t.dinheiro),
+        debito: Number(t.debito),
+        credito: Number(t.credito),
+        pix: Number(t.pix),
+      };
+
+      // Soma total geral
+      const totalLoja = bruto.dinheiro + bruto.debito + bruto.credito + bruto.pix;
+      totalGeral += totalLoja;
+
+      // Valor com comissão aplicada
+      const aposComissao = {
+        dinheiro: bruto.dinheiro * fatorComissao,
+        debito: bruto.debito * fatorComissao,
+        credito: bruto.credito * fatorComissao,
+        pix: bruto.pix * fatorComissao,
+      };
+
+      totalComissoes += totalLoja * (percentualComissaoTotal / 100);
+
+      // Taxas PDV por modalidade
+      const taxasPdvsLoja =
+        (aposComissao.dinheiro * (Number(taxasPdvs?.dinheiro) || 0)) / 100 +
+        (aposComissao.debito * (Number(taxasPdvs?.debito) || 0)) / 100 +
+        (aposComissao.credito * (Number(taxasPdvs?.credito) || 0)) / 100 +
+        (aposComissao.pix * (Number(taxasPdvs?.pix) || 0)) / 100;
+
+      totalTaxasPdvs += taxasPdvsLoja;
+
+      const valorPosTaxasPdvs =
+        aposComissao.dinheiro + aposComissao.debito + aposComissao.credito + aposComissao.pix - taxasPdvsLoja;
+
+      repassePorLoja[t.lojaId] = valorPosTaxasPdvs;
+
+      // Taxas Stone
+      const taxasStoneLoja =
+        (aposComissao.dinheiro * (Number(taxasStone?.dinheiro) || 0)) / 100 +
+        (aposComissao.debito * (Number(taxasStone?.debito) || 0)) / 100 +
+        (aposComissao.credito * (Number(taxasStone?.credito) || 0)) / 100 +
+        (aposComissao.pix * (Number(taxasStone?.pix) || 0)) / 100;
+
+      totalTaxasStone += taxasStoneLoja;
+
+      // Lucro PDV: valor PDV (antes Stone) - taxas Stone
+      lucroPdvs += valorPosTaxasPdvs - taxasStoneLoja;
+
+      // Atualiza o acumulado por loja (bruto)
+      loja.dinheiro += bruto.dinheiro;
+      loja.debito += bruto.debito;
+      loja.credito += bruto.credito;
+      loja.pix += bruto.pix;
+    }
 
     const repassePdvsBruto = totalGeral - totalComissoes;
-
-    const totalTaxasPdvs = calcularTaxasTotais(porLoja, taxasPdvs);
     const repassePdvsLiquido = repassePdvsBruto - totalTaxasPdvs;
-
-    const totalTaxasStone = calcularTaxasTotais(porLoja, taxasStone);
-
-    const lucroPdvs = repassePdvsLiquido - totalTaxasStone;
-
-    // Calcula repasse individual para cada loja (após comissões e taxas do PDV)
-    const percentualComissaoTotal = comissionados.reduce(
-      (total, c) => total + Number(c.percentual),
-      0,
-    );
-    const fatorComissao = 1 - percentualComissaoTotal / 100;
-    const repassePorLoja: Record<string, number> = {};
-    for (const [lojaId, loja] of Object.entries(porLoja)) {
-      const aposComissao = {
-        dinheiro: loja.dinheiro * fatorComissao,
-        debito: loja.debito * fatorComissao,
-        credito: loja.credito * fatorComissao,
-        pix: loja.pix * fatorComissao,
-      };
-      const taxasLoja = calcularTaxasTotais({ loja: aposComissao }, taxasPdvs);
-      const totalLoja =
-        aposComissao.dinheiro +
-        aposComissao.debito +
-        aposComissao.credito +
-        aposComissao.pix -
-        taxasLoja;
-      repassePorLoja[lojaId] = totalLoja;
-    }
 
     return {
       total_geral: totalGeral,
-      total_comissoes: totalComissoes,
+      total_comissionados: totalComissoes,
       repasse_pdvs_bruto: repassePdvsBruto,
       total_taxas_pdvs: totalTaxasPdvs,
       repasse_pdvs_liquido: repassePdvsLiquido,
-      descricao_repasse_pdvs:
-        'Repasse às lojas = Total Geral - Total de Comissões - Taxas do PDV',
-      formula_repasse_pdvs:
-        '(total_geral - total_comissoes) - total_taxas_pdvs',
       total_taxas_stone: totalTaxasStone,
       lucro_pdvs: lucroPdvs,
       repasse_loja: repassePorLoja,
       por_loja: porLoja,
     };
   }
-}
-
-// Soma o total das taxas por modalidade
-function calcularTaxasTotais(lojas: Record<string, any>, taxas: any) {
-  return Object.values(lojas).reduce((acc, loja) => {
-    return (
-      acc +
-      loja.dinheiro * (Number(taxas?.dinheiro ?? 0) / 100) +
-      loja.debito * (Number(taxas?.debito ?? 0) / 100) +
-      loja.credito * (Number(taxas?.credito ?? 0) / 100) +
-      loja.pix * (Number(taxas?.pix ?? 0) / 100)
-    );
-  }, 0);
 }
