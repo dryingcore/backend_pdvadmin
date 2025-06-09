@@ -40,24 +40,20 @@ export class FechamentoEventoService {
     }
 
     // Comissionamento
-    const totalComissoes = comissionados.reduce((total, c) => total + totalGeral * (Number(c.percentual) / 100), 0);
-
-    const repassePdvsBruto = totalGeral - totalComissoes;
-
-    const totalTaxasPdvs = calcularTaxasTotais(porLoja, taxasPdvs);
-    const repassePdvsLiquido = repassePdvsBruto - totalTaxasPdvs;
-
-    const totalTaxasStone = calcularTaxasTotais(porLoja, taxasStone);
-
-    const lucroPdvs = repassePdvsLiquido - totalTaxasStone;
-
-    // Calcula repasse individual para cada loja (após comissões e taxas do PDV)
     const percentualComissaoTotal = comissionados.reduce(
       (total, c) => total + Number(c.percentual),
       0,
     );
     const fatorComissao = 1 - percentualComissaoTotal / 100;
-    const repassePorLoja: Record<string, number> = {};
+    const totalComissoes = totalGeral * (percentualComissaoTotal / 100);
+
+    const repassePorLoja: Record<
+      string,
+      { dinheiro: number; debito: number; credito: number; pix: number; total: number }
+    > = {};
+
+    const totalTaxasPdvsPorModalidade = { dinheiro: 0, debito: 0, credito: 0, pix: 0 };
+
     for (const [lojaId, loja] of Object.entries(porLoja)) {
       const aposComissao = {
         dinheiro: loja.dinheiro * fatorComissao,
@@ -65,15 +61,56 @@ export class FechamentoEventoService {
         credito: loja.credito * fatorComissao,
         pix: loja.pix * fatorComissao,
       };
-      const taxasLoja = calcularTaxasTotais({ loja: aposComissao }, taxasPdvs);
-      const totalLoja =
-        aposComissao.dinheiro +
-        aposComissao.debito +
-        aposComissao.credito +
-        aposComissao.pix -
-        taxasLoja;
-      repassePorLoja[lojaId] = totalLoja;
+
+      const taxasLoja = {
+        dinheiro: aposComissao.dinheiro * (Number(taxasPdvs?.dinheiro ?? 0) / 100),
+        debito: aposComissao.debito * (Number(taxasPdvs?.debito ?? 0) / 100),
+        credito: aposComissao.credito * (Number(taxasPdvs?.credito ?? 0) / 100),
+        pix: aposComissao.pix * (Number(taxasPdvs?.pix ?? 0) / 100),
+      };
+
+      totalTaxasPdvsPorModalidade.dinheiro += taxasLoja.dinheiro;
+      totalTaxasPdvsPorModalidade.debito += taxasLoja.debito;
+      totalTaxasPdvsPorModalidade.credito += taxasLoja.credito;
+      totalTaxasPdvsPorModalidade.pix += taxasLoja.pix;
+
+      const repasse = {
+        dinheiro: aposComissao.dinheiro - taxasLoja.dinheiro,
+        debito: aposComissao.debito - taxasLoja.debito,
+        credito: aposComissao.credito - taxasLoja.credito,
+        pix: aposComissao.pix - taxasLoja.pix,
+      };
+
+      repassePorLoja[lojaId] = {
+        ...repasse,
+        total: repasse.dinheiro + repasse.debito + repasse.credito + repasse.pix,
+      };
     }
+
+    const repassePdvsBruto = totalGeral - totalComissoes;
+
+    const totalTaxasPdvs =
+      totalTaxasPdvsPorModalidade.dinheiro +
+      totalTaxasPdvsPorModalidade.debito +
+      totalTaxasPdvsPorModalidade.credito +
+      totalTaxasPdvsPorModalidade.pix;
+
+    const repassePdvsLiquido = repassePdvsBruto - totalTaxasPdvs;
+
+    const totalTaxasStonePorModalidade = {
+      dinheiro: totalTaxasPdvsPorModalidade.dinheiro * (Number(taxasStone?.dinheiro ?? 0) / 100),
+      debito: totalTaxasPdvsPorModalidade.debito * (Number(taxasStone?.debito ?? 0) / 100),
+      credito: totalTaxasPdvsPorModalidade.credito * (Number(taxasStone?.credito ?? 0) / 100),
+      pix: totalTaxasPdvsPorModalidade.pix * (Number(taxasStone?.pix ?? 0) / 100),
+    };
+
+    const totalTaxasStone =
+      totalTaxasStonePorModalidade.dinheiro +
+      totalTaxasStonePorModalidade.debito +
+      totalTaxasStonePorModalidade.credito +
+      totalTaxasStonePorModalidade.pix;
+
+    const lucroPdvs = totalTaxasPdvs - totalTaxasStone;
 
     return {
       total_geral: totalGeral,
@@ -91,17 +128,4 @@ export class FechamentoEventoService {
       por_loja: porLoja,
     };
   }
-}
-
-// Soma o total das taxas por modalidade
-function calcularTaxasTotais(lojas: Record<string, any>, taxas: any) {
-  return Object.values(lojas).reduce((acc, loja) => {
-    return (
-      acc +
-      loja.dinheiro * (Number(taxas?.dinheiro ?? 0) / 100) +
-      loja.debito * (Number(taxas?.debito ?? 0) / 100) +
-      loja.credito * (Number(taxas?.credito ?? 0) / 100) +
-      loja.pix * (Number(taxas?.pix ?? 0) / 100)
-    );
-  }, 0);
 }
