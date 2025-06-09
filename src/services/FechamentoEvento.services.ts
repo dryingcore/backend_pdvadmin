@@ -57,6 +57,10 @@ export class FechamentoEventoService {
       repasse_pdvs_bruto: repassePdvsBruto,
       total_taxas_pdvs: totalTaxasPdvs,
       repasse_pdvs_liquido: repassePdvsLiquido,
+      descricao_repasse_pdvs:
+        'Repasse às lojas = Total Geral - Total de Comissões - Taxas do PDV',
+      formula_repasse_pdvs:
+        '(total_geral - total_comissoes) - total_taxas_pdvs',
       total_taxas_stone: totalTaxasStone,
       lucro_pdvs: lucroPdvs,
       por_loja: porLoja,
