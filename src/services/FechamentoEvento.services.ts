@@ -4,148 +4,101 @@ import {
   eventoComissionados,
   taxasEvento,
   taxasGatewayEvento,
-  taxasGateway,
+  taxasGateway as taxasGatewaySchema,
 } from '../database/schema';
 import { eq } from 'drizzle-orm';
 
+type Modalidade = 'dinheiro' | 'debito' | 'credito' | 'pix';
+
 export class FechamentoEventoService {
   async gerarResumo(eventoId: string) {
-    const transacoes = await db
-      .select()
-      .from(transacoesDiarias)
-      .where(eq(transacoesDiarias.eventoId, eventoId));
-
-    const comissionados = await db
-      .select()
-      .from(eventoComissionados)
-      .where(eq(eventoComissionados.eventoId, eventoId));
-
-    const [taxasPdvs] = await db
-      .select()
-      .from(taxasEvento)
-      .where(eq(taxasEvento.eventoId, eventoId));
-
-    const [taxasStone] = await db
+    // Coleta dados do banco
+    const transacoes = await db.select().from(transacoesDiarias).where(eq(transacoesDiarias.eventoId, eventoId));
+    const comissionados = await db.select().from(eventoComissionados).where(eq(eventoComissionados.eventoId, eventoId));
+    const [taxasDoEvento] = await db.select().from(taxasEvento).where(eq(taxasEvento.eventoId, eventoId));
+    const [taxasGateway] = await db
       .select({
-        dinheiro: taxasGateway.dinheiro,
-        debito: taxasGateway.debito,
-        credito: taxasGateway.credito,
-        pix: taxasGateway.pix,
+        dinheiro: taxasGatewaySchema.dinheiro,
+        debito: taxasGatewaySchema.debito,
+        credito: taxasGatewaySchema.credito,
+        pix: taxasGatewaySchema.pix,
       })
       .from(taxasGatewayEvento)
-      .innerJoin(taxasGateway, eq(taxasGatewayEvento.taxaId, taxasGateway.id))
+      .innerJoin(taxasGatewaySchema, eq(taxasGatewayEvento.taxaId, taxasGatewaySchema.id))
       .where(eq(taxasGatewayEvento.eventoId, eventoId));
 
-    const porLoja: Record<string, { dinheiro: number; debito: number; credito: number; pix: number }> = {};
-    let totalGeral = 0;
-
+    // Agrupa transações por loja
+    const porLoja: Record<string, Record<Modalidade, number>> = {};
     for (const t of transacoes) {
-      const loja = (porLoja[t.lojaId] ??= {
-        dinheiro: 0,
-        debito: 0,
-        credito: 0,
-        pix: 0,
-      });
-
+      const loja = (porLoja[t.lojaId] ??= { dinheiro: 0, debito: 0, credito: 0, pix: 0 });
       loja.dinheiro += Number(t.dinheiro);
       loja.debito += Number(t.debito);
       loja.credito += Number(t.credito);
       loja.pix += Number(t.pix);
-
-      totalGeral +=
-        Number(t.dinheiro) + Number(t.debito) + Number(t.credito) + Number(t.pix);
     }
 
-    const percentualComissaoTotal = comissionados.reduce(
-      (total, c) => total + Number(c.percentual),
-      0,
-    );
-    const fatorComissao = 1 - percentualComissaoTotal / 100;
-    const totalComissoes = totalGeral * (percentualComissaoTotal / 100);
+    const percentualComissao = comissionados.reduce((acc, c) => acc + Number(c.percentual), 0) / 100;
 
-    const repassePorLoja: Record<
+    const resultadoFinal: Record<
       string,
-      { dinheiro: number; debito: number; credito: number; pix: number; total: number }
+      Record<
+        Modalidade,
+        {
+          valor_bruto: number;
+          comissao: number;
+          apos_comissao: number;
+          taxa_evento: number;
+          taxa_gateway: number;
+          repasse_loja: number;
+          lucro_pdvs: number;
+        }
+      >
     > = {};
 
-    const totalTaxasPdvsPorModalidade = { dinheiro: 0, debito: 0, credito: 0, pix: 0 };
-    const totalTaxasStonePorModalidade = { dinheiro: 0, debito: 0, credito: 0, pix: 0 };
+    for (const [lojaId, modalidades] of Object.entries(porLoja)) {
+      const resultadoPorModalidade = {} as (typeof resultadoFinal)[string];
 
-    for (const [lojaId, loja] of Object.entries(porLoja)) {
-      const aposComissao = {
-        dinheiro: loja.dinheiro * fatorComissao,
-        debito: loja.debito * fatorComissao,
-        credito: loja.credito * fatorComissao,
-        pix: loja.pix * fatorComissao,
-      };
+      for (const mod of ['dinheiro', 'debito', 'credito', 'pix'] as Modalidade[]) {
+        const bruto = modalidades[mod];
+        if (bruto === 0) {
+          resultadoPorModalidade[mod] = {
+            valor_bruto: 0,
+            comissao: 0,
+            apos_comissao: 0,
+            taxa_evento: 0,
+            taxa_gateway: 0,
+            repasse_loja: 0,
+            lucro_pdvs: 0,
+          };
+          continue;
+        }
 
-      const taxasPdvsLoja = {
-        dinheiro: aposComissao.dinheiro * (Number(taxasPdvs?.dinheiro ?? 0) / 100),
-        debito: aposComissao.debito * (Number(taxasPdvs?.debito ?? 0) / 100),
-        credito: aposComissao.credito * (Number(taxasPdvs?.credito ?? 0) / 100),
-        pix: aposComissao.pix * (Number(taxasPdvs?.pix ?? 0) / 100),
-      };
+        const comissao = Number((bruto * percentualComissao).toFixed(4));
+        const aposComissao = Number((bruto - comissao).toFixed(4));
 
-      totalTaxasPdvsPorModalidade.dinheiro += taxasPdvsLoja.dinheiro;
-      totalTaxasPdvsPorModalidade.debito += taxasPdvsLoja.debito;
-      totalTaxasPdvsPorModalidade.credito += taxasPdvsLoja.credito;
-      totalTaxasPdvsPorModalidade.pix += taxasPdvsLoja.pix;
+        const taxaEventoPercent = Number(taxasDoEvento?.[mod] ?? 0) / 100;
+        const taxaEvento = Number((aposComissao * taxaEventoPercent).toFixed(4));
 
-      const repasse = {
-        dinheiro: aposComissao.dinheiro - taxasPdvsLoja.dinheiro,
-        debito: aposComissao.debito - taxasPdvsLoja.debito,
-        credito: aposComissao.credito - taxasPdvsLoja.credito,
-        pix: aposComissao.pix - taxasPdvsLoja.pix,
-      };
+        const taxaGatewayPercent = Number(taxasGateway?.[mod] ?? 0) / 100;
+        const taxaGateway = Number((taxaEvento * taxaGatewayPercent).toFixed(4));
 
-      repassePorLoja[lojaId] = {
-        ...repasse,
-        total: repasse.dinheiro + repasse.debito + repasse.credito + repasse.pix,
-      };
+        const repasseLoja = Number((aposComissao - taxaEvento).toFixed(4));
+        const lucroPdvs = Number((taxaEvento - taxaGateway).toFixed(4));
 
-      const taxasStoneLoja = {
-        dinheiro: aposComissao.dinheiro * (Number(taxasStone?.dinheiro ?? 0) / 100),
-        debito: aposComissao.debito * (Number(taxasStone?.debito ?? 0) / 100),
-        credito: aposComissao.credito * (Number(taxasStone?.credito ?? 0) / 100),
-        pix: aposComissao.pix * (Number(taxasStone?.pix ?? 0) / 100),
-      };
+        resultadoPorModalidade[mod] = {
+          valor_bruto: bruto,
+          comissao,
+          apos_comissao: aposComissao,
+          taxa_evento: taxaEvento,
+          taxa_gateway: taxaGateway,
+          repasse_loja: repasseLoja,
+          lucro_pdvs: lucroPdvs,
+        };
+      }
 
-      totalTaxasStonePorModalidade.dinheiro += taxasStoneLoja.dinheiro;
-      totalTaxasStonePorModalidade.debito += taxasStoneLoja.debito;
-      totalTaxasStonePorModalidade.credito += taxasStoneLoja.credito;
-      totalTaxasStonePorModalidade.pix += taxasStoneLoja.pix;
+      resultadoFinal[lojaId] = resultadoPorModalidade;
     }
 
-    const repassePdvsBruto = totalGeral - totalComissoes;
-
-    const totalTaxasPdvs =
-      totalTaxasPdvsPorModalidade.dinheiro +
-      totalTaxasPdvsPorModalidade.debito +
-      totalTaxasPdvsPorModalidade.credito +
-      totalTaxasPdvsPorModalidade.pix;
-
-    const repassePdvsLiquido = repassePdvsBruto - totalTaxasPdvs;
-
-    const totalTaxasStone =
-      totalTaxasStonePorModalidade.dinheiro +
-      totalTaxasStonePorModalidade.debito +
-      totalTaxasStonePorModalidade.credito +
-      totalTaxasStonePorModalidade.pix;
-
-    const lucroPdvs = totalTaxasPdvs - totalTaxasStone;
-
-    return {
-      total_geral: totalGeral,
-      total_comissoes: totalComissoes,
-      repasse_pdvs_bruto: repassePdvsBruto,
-      total_taxas_pdvs: totalTaxasPdvs,
-      repasse_pdvs_liquido: repassePdvsLiquido,
-      descricao_repasse_pdvs: 'Repasse às lojas = Total Geral - Total de Comissões - Taxas do PDV',
-      formula_repasse_pdvs: '(total_geral - total_comissoes) - total_taxas_pdvs',
-      total_taxas_stone: totalTaxasStone,
-      lucro_pdvs: lucroPdvs,
-      repasse_loja: repassePorLoja,
-      por_loja: porLoja,
-    };
+    return resultadoFinal;
   }
 }
