@@ -51,6 +51,30 @@ export class FechamentoEventoService {
 
     const lucroPdvs = repassePdvsLiquido - totalTaxasStone;
 
+    // Calcula repasse individual para cada loja (após comissões e taxas do PDV)
+    const percentualComissaoTotal = comissionados.reduce(
+      (total, c) => total + Number(c.percentual),
+      0,
+    );
+    const fatorComissao = 1 - percentualComissaoTotal / 100;
+    const repassePorLoja: Record<string, number> = {};
+    for (const [lojaId, loja] of Object.entries(porLoja)) {
+      const aposComissao = {
+        dinheiro: loja.dinheiro * fatorComissao,
+        debito: loja.debito * fatorComissao,
+        credito: loja.credito * fatorComissao,
+        pix: loja.pix * fatorComissao,
+      };
+      const taxasLoja = calcularTaxasTotais({ loja: aposComissao }, taxasPdvs);
+      const totalLoja =
+        aposComissao.dinheiro +
+        aposComissao.debito +
+        aposComissao.credito +
+        aposComissao.pix -
+        taxasLoja;
+      repassePorLoja[lojaId] = totalLoja;
+    }
+
     return {
       total_geral: totalGeral,
       total_comissoes: totalComissoes,
@@ -63,6 +87,7 @@ export class FechamentoEventoService {
         '(total_geral - total_comissoes) - total_taxas_pdvs',
       total_taxas_stone: totalTaxasStone,
       lucro_pdvs: lucroPdvs,
+      repasse_loja: repassePorLoja,
       por_loja: porLoja,
     };
   }

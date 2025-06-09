@@ -28,3 +28,7 @@ valor final destinado às lojas (PDVs). O cálculo é descrito nos campos abaixo
   "formula_repasse_pdvs": "(total_geral - total_comissoes) - total_taxas_pdvs"
 }
 ```
+
+Cada loja também possui um repasse individual disponível no campo `repasse_loja`,
+onde a chave é o `id` da loja e o valor representa o montante repassado após as
+comissões e as taxas do PDV.
