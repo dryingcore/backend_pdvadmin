@@ -5,8 +5,9 @@ import {
   taxasEvento,
   taxasGatewayEvento,
   taxasGateway as taxasGatewaySchema,
+  lojas,
 } from '../database/schema';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 type Modalidade = 'dinheiro' | 'debito' | 'credito' | 'pix';
 
@@ -37,11 +38,39 @@ export class FechamentoEventoService {
       loja.pix += Number(t.pix);
     }
 
+    // Busca nomes das lojas envolvidas
+    const lojaIds = Object.keys(porLoja);
+    const lojasInfo = await db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).where(inArray(lojas.id, lojaIds));
+
+    const nomesLojas: Record<string, string> = {};
+    for (const loja of lojasInfo) {
+      nomesLojas[loja.id] = loja.nome;
+    }
+
     const percentualComissao = comissionados.reduce((acc, c) => acc + Number(c.percentual), 0) / 100;
 
+    // Resultado final com nome da loja e modalidades
     const resultadoFinal: Record<
       string,
-      Record<
+      {
+        nome: string;
+        modalidades: Record<
+          Modalidade,
+          {
+            valor_bruto: number;
+            comissao: number;
+            apos_comissao: number;
+            taxa_evento: number;
+            taxa_gateway: number;
+            repasse_loja: number;
+            lucro_pdvs: number;
+          }
+        >;
+      }
+    > = {};
+
+    for (const [lojaId, modalidades] of Object.entries(porLoja)) {
+      const resultadoPorModalidade = {} as Record<
         Modalidade,
         {
           valor_bruto: number;
@@ -52,11 +81,7 @@ export class FechamentoEventoService {
           repasse_loja: number;
           lucro_pdvs: number;
         }
-      >
-    > = {};
-
-    for (const [lojaId, modalidades] of Object.entries(porLoja)) {
-      const resultadoPorModalidade = {} as (typeof resultadoFinal)[string];
+      >;
 
       for (const mod of ['dinheiro', 'debito', 'credito', 'pix'] as Modalidade[]) {
         const bruto = modalidades[mod];
@@ -96,7 +121,10 @@ export class FechamentoEventoService {
         };
       }
 
-      resultadoFinal[lojaId] = resultadoPorModalidade;
+      resultadoFinal[lojaId] = {
+        nome: nomesLojas[lojaId] ?? 'Loja desconhecida',
+        modalidades: resultadoPorModalidade,
+      };
     }
 
     return resultadoFinal;
