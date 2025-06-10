@@ -12,7 +12,7 @@ const app = Fastify({
 });
 
 app.register(fastifyCors, {
-  origin: '*', // ou especifique: ['http://localhost:8080']
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 });
 
