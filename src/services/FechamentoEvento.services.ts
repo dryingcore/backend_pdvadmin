@@ -5,30 +5,44 @@ import {
   taxasEvento,
   taxasGatewayEvento,
   taxasGateway as taxasGatewaySchema,
+  taxasPersonalizadasLoja,
+  eventoLojas,
   lojas,
 } from '../database/schema';
 import { eq, inArray } from 'drizzle-orm';
 
 type Modalidade = 'dinheiro' | 'debito' | 'credito' | 'pix';
+type Taxas = Partial<Record<Modalidade, number>>;
 
 export class FechamentoEventoService {
   async gerarResumo(eventoId: string) {
-    // Coleta dados do banco
     const transacoes = await db.select().from(transacoesDiarias).where(eq(transacoesDiarias.eventoId, eventoId));
+
     const comissionados = await db.select().from(eventoComissionados).where(eq(eventoComissionados.eventoId, eventoId));
-    const [taxasDoEvento] = await db.select().from(taxasEvento).where(eq(taxasEvento.eventoId, eventoId));
+
+    const [taxasDoEventoRow] = await db.select().from(taxasEvento).where(eq(taxasEvento.eventoId, eventoId));
+
+    const taxasDoEvento: Taxas = {
+      dinheiro: Number(taxasDoEventoRow?.dinheiro ?? 0),
+      debito: Number(taxasDoEventoRow?.debito ?? 0),
+      credito: Number(taxasDoEventoRow?.credito ?? 0),
+      pix: Number(taxasDoEventoRow?.pix ?? 0),
+    };
+
+    const taxaAntecipacaoEvento = Number(taxasDoEventoRow?.antecipacao ?? 0);
+
     const [taxasGateway] = await db
       .select({
         dinheiro: taxasGatewaySchema.dinheiro,
         debito: taxasGatewaySchema.debito,
         credito: taxasGatewaySchema.credito,
         pix: taxasGatewaySchema.pix,
+        antecipacao: taxasGatewaySchema.antecipacao, // <- campo necessário
       })
       .from(taxasGatewayEvento)
       .innerJoin(taxasGatewaySchema, eq(taxasGatewayEvento.taxaId, taxasGatewaySchema.id))
       .where(eq(taxasGatewayEvento.eventoId, eventoId));
 
-    // Agrupa transações por loja
     const porLoja: Record<string, Record<Modalidade, number>> = {};
     for (const t of transacoes) {
       const loja = (porLoja[t.lojaId] ??= { dinheiro: 0, debito: 0, credito: 0, pix: 0 });
@@ -38,18 +52,56 @@ export class FechamentoEventoService {
       loja.pix += Number(t.pix);
     }
 
-    // Busca nomes das lojas envolvidas
     const lojaIds = Object.keys(porLoja);
-    const lojasInfo = await db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).where(inArray(lojas.id, lojaIds));
 
-    const nomesLojas: Record<string, string> = {};
+    const lojasInfo = await db
+      .select({
+        id: lojas.id,
+        nome: lojas.nome,
+        usaTaxasPersonalizadas: lojas.usaTaxasPersonalizadas,
+      })
+      .from(lojas)
+      .where(inArray(lojas.id, lojaIds));
+
+    const taxasPersonalizadas = await db
+      .select()
+      .from(taxasPersonalizadasLoja)
+      .where(inArray(taxasPersonalizadasLoja.lojaId, lojaIds));
+
+    const taxasPorLoja: Record<string, Taxas & { antecipacao?: number }> = {};
+    for (const taxa of taxasPersonalizadas) {
+      taxasPorLoja[taxa.lojaId] = {
+        dinheiro: Number(taxa.dinheiro),
+        debito: Number(taxa.debito),
+        credito: Number(taxa.credito),
+        pix: Number(taxa.pix),
+        antecipacao: Number(taxa.antecipacao ?? 0),
+      };
+    }
+
+    const antecipacoes = await db
+      .select({
+        lojaId: eventoLojas.lojaId,
+        haveraAntecipacao: eventoLojas.haveraAntecipacao,
+      })
+      .from(eventoLojas)
+      .where(eq(eventoLojas.eventoId, eventoId));
+
+    const antecipacaoPorLoja: Record<string, boolean> = {};
+    for (const a of antecipacoes) {
+      antecipacaoPorLoja[a.lojaId] = a.haveraAntecipacao;
+    }
+
+    const lojaConfigs: Record<string, { nome: string; usaTaxasPersonalizadas: boolean }> = {};
     for (const loja of lojasInfo) {
-      nomesLojas[loja.id] = loja.nome;
+      lojaConfigs[loja.id] = {
+        nome: loja.nome,
+        usaTaxasPersonalizadas: loja.usaTaxasPersonalizadas,
+      };
     }
 
     const percentualComissao = comissionados.reduce((acc, c) => acc + Number(c.percentual), 0) / 100;
 
-    // Resultado final com nome da loja e modalidades
     const resultadoFinal: Record<
       string,
       {
@@ -83,6 +135,11 @@ export class FechamentoEventoService {
         }
       >;
 
+      const lojaCfg = lojaConfigs[lojaId];
+      const usaTaxasPersonalizadas = lojaCfg?.usaTaxasPersonalizadas ?? false;
+      const antecipar = antecipacaoPorLoja[lojaId] ?? false;
+      const taxasLoja = taxasPorLoja[lojaId] ?? {};
+
       for (const mod of ['dinheiro', 'debito', 'credito', 'pix'] as Modalidade[]) {
         const bruto = modalidades[mod];
         if (bruto === 0) {
@@ -101,10 +158,38 @@ export class FechamentoEventoService {
         const comissao = Number((bruto * percentualComissao).toFixed(4));
         const aposComissao = Number((bruto - comissao).toFixed(4));
 
-        const taxaEventoPercent = Number(taxasDoEvento?.[mod] ?? 0) / 100;
+        // -------------------------------
+        // TAXA DO EVENTO
+        let taxaEventoPercent = 0;
+
+        if (mod === 'credito') {
+          if (antecipar) {
+            taxaEventoPercent = usaTaxasPersonalizadas
+              ? ((taxasLoja.credito ?? 0) + (taxasLoja.antecipacao ?? 0)) / 100
+              : ((taxasDoEvento.credito ?? 0) + (taxaAntecipacaoEvento ?? 0)) / 100;
+          } else {
+            taxaEventoPercent = usaTaxasPersonalizadas
+              ? (taxasLoja.credito ?? 0) / 100
+              : (taxasDoEvento.credito ?? 0) / 100;
+          }
+        } else {
+          taxaEventoPercent = usaTaxasPersonalizadas ? (taxasLoja[mod] ?? 0) / 100 : (taxasDoEvento[mod] ?? 0) / 100;
+        }
+
         const taxaEvento = Number((aposComissao * taxaEventoPercent).toFixed(4));
 
-        const taxaGatewayPercent = Number(taxasGateway?.[mod] ?? 0) / 100;
+        // -------------------------------
+        // TAXA DO GATEWAY
+        let taxaGatewayPercent = 0;
+
+        if (mod === 'credito' && antecipar) {
+          const taxaCredito = Number(taxasGateway?.credito ?? 0);
+          const taxaAntecipacao = Number(taxasGateway?.antecipacao ?? 0);
+          taxaGatewayPercent = (taxaCredito + taxaAntecipacao) / 100;
+        } else {
+          taxaGatewayPercent = Number(taxasGateway?.[mod] ?? 0) / 100;
+        }
+
         const taxaGateway = Number((taxaEvento * taxaGatewayPercent).toFixed(4));
 
         const repasseLoja = Number((aposComissao - taxaEvento).toFixed(4));
@@ -122,7 +207,7 @@ export class FechamentoEventoService {
       }
 
       resultadoFinal[lojaId] = {
-        nome: nomesLojas[lojaId] ?? 'Loja desconhecida',
+        nome: lojaCfg?.nome ?? 'Loja desconhecida',
         modalidades: resultadoPorModalidade,
       };
     }
