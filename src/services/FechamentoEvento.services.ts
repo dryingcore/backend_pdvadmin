@@ -37,7 +37,7 @@ export class FechamentoEventoService {
         debito: taxasGatewaySchema.debito,
         credito: taxasGatewaySchema.credito,
         pix: taxasGatewaySchema.pix,
-        antecipacao: taxasGatewaySchema.antecipacao, // <- campo necessário
+        antecipacao: taxasGatewaySchema.antecipacao,
       })
       .from(taxasGatewayEvento)
       .innerJoin(taxasGatewaySchema, eq(taxasGatewayEvento.taxaId, taxasGatewaySchema.id))
@@ -111,7 +111,6 @@ export class FechamentoEventoService {
           {
             valor_bruto: number;
             comissao: number;
-            apos_comissao: number;
             taxa_evento: number;
             taxa_gateway: number;
             repasse_loja: number;
@@ -127,7 +126,6 @@ export class FechamentoEventoService {
         {
           valor_bruto: number;
           comissao: number;
-          apos_comissao: number;
           taxa_evento: number;
           taxa_gateway: number;
           repasse_loja: number;
@@ -146,7 +144,6 @@ export class FechamentoEventoService {
           resultadoPorModalidade[mod] = {
             valor_bruto: 0,
             comissao: 0,
-            apos_comissao: 0,
             taxa_evento: 0,
             taxa_gateway: 0,
             repasse_loja: 0,
@@ -155,13 +152,11 @@ export class FechamentoEventoService {
           continue;
         }
 
+        // Comissão sobre o bruto
         const comissao = Number((bruto * percentualComissao).toFixed(4));
-        const aposComissao = Number((bruto - comissao).toFixed(4));
 
-        // -------------------------------
-        // TAXA DO EVENTO
+        // Taxa do evento sobre o bruto
         let taxaEventoPercent = 0;
-
         if (mod === 'credito') {
           if (antecipar) {
             taxaEventoPercent = usaTaxasPersonalizadas
@@ -176,12 +171,10 @@ export class FechamentoEventoService {
           taxaEventoPercent = usaTaxasPersonalizadas ? (taxasLoja[mod] ?? 0) / 100 : (taxasDoEvento[mod] ?? 0) / 100;
         }
 
-        const taxaEvento = Number((aposComissao * taxaEventoPercent).toFixed(4));
+        const taxaEvento = Number((bruto * taxaEventoPercent).toFixed(4));
 
-        // -------------------------------
-        // TAXA DO GATEWAY
+        // Taxa gateway sobre a taxa do evento
         let taxaGatewayPercent = 0;
-
         if (mod === 'credito' && antecipar) {
           const taxaCredito = Number(taxasGateway?.credito ?? 0);
           const taxaAntecipacao = Number(taxasGateway?.antecipacao ?? 0);
@@ -192,13 +185,13 @@ export class FechamentoEventoService {
 
         const taxaGateway = Number((taxaEvento * taxaGatewayPercent).toFixed(4));
 
-        const repasseLoja = Number((aposComissao - taxaEvento).toFixed(4));
+        // Repasse final = bruto - comissão - taxa evento
+        const repasseLoja = Number((bruto - comissao - taxaEvento).toFixed(4));
         const lucroPdvs = Number((taxaEvento - taxaGateway).toFixed(4));
 
         resultadoPorModalidade[mod] = {
           valor_bruto: bruto,
           comissao,
-          apos_comissao: aposComissao,
           taxa_evento: taxaEvento,
           taxa_gateway: taxaGateway,
           repasse_loja: repasseLoja,
