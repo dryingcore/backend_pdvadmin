@@ -183,7 +183,7 @@ export class FechamentoEventoService {
           taxaGatewayPercent = Number(taxasGateway?.[mod] ?? 0) / 100;
         }
 
-        const taxaGateway = Number((taxaEvento * taxaGatewayPercent).toFixed(4));
+        const taxaGateway = Number((bruto * taxaGatewayPercent).toFixed(4));
 
         // Repasse final = bruto - comissão - taxa evento
         const repasseLoja = Number((bruto - comissao - taxaEvento).toFixed(4));
