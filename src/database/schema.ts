@@ -106,6 +106,26 @@ export const taxasEvento = pgTable(
   }),
 );
 
+export const eventoLojaComissionado = pgTable(
+  'evento_loja_comissionado',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    eventoId: uuid('evento_id').notNull(),
+    lojaId: uuid('loja_id').notNull(),
+    comissionadoId: uuid('comissionado_id').notNull(),
+    percentualCustomizado: numeric('percentual_customizado', { precision: 5, scale: 2 }),
+    criadoEm: timestamp('criado_em').notNull().defaultNow(),
+    atualizadoEm: timestamp('atualizado_em'),
+  },
+  table => ({
+    uniqueEventoLojaComissionado: uniqueIndex('unique_evento_loja_comissionado').on(
+      table.eventoId,
+      table.lojaId,
+      table.comissionadoId,
+    ),
+  }),
+);
+
 // Evento-lojas
 export const eventoLojas = pgTable(
   'evento_lojas',

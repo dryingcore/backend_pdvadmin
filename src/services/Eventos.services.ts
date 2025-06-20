@@ -8,6 +8,7 @@ import {
   comissionados,
   lojas,
   taxasGatewayEvento,
+  eventoLojaComissionado,
   taxasGateway,
   transacoesDiarias,
 } from '../database/schema';
@@ -23,6 +24,7 @@ interface LojaEventoInput {
 interface ComissionadoEventoInput {
   id: string;
   percentual: string;
+  porLoja?: Record<string, string>; // <- em vez de number
 }
 
 interface TaxasPorGatewayInput {
@@ -42,7 +44,7 @@ interface CriarEventoInput {
     antecipacao: string;
   };
   lojas: { id: string; havera_antecipacao?: boolean }[];
-  comissionados: { id: string; percentual: string }[];
+  comissionados: ComissionadoEventoInput[];
   taxas_por_gateway?: { id: string };
 }
 
@@ -269,7 +271,6 @@ export class EventsService {
         lojaId: loja.id,
         haveraAntecipacao: Boolean(loja.havera_antecipacao),
       }));
-
       await trx.insert(eventoLojas).values(lojasEvento);
 
       const comissionadosEvento = comissionados.map(com => ({
@@ -277,8 +278,19 @@ export class EventsService {
         comissionadoId: com.id,
         percentual: com.percentual.toString(),
       }));
-
       await trx.insert(eventoComissionados).values(comissionadosEvento);
+
+      for (const com of comissionados) {
+        if (com.porLoja) {
+          const personalizados = Object.entries(com.porLoja).map(([lojaId, percentual]) => ({
+            eventoId: evento.id,
+            lojaId,
+            comissionadoId: com.id,
+            percentualCustomizado: percentual,
+          }));
+          await trx.insert(eventoLojaComissionado).values(personalizados);
+        }
+      }
 
       if (taxas_por_gateway) {
         await trx.insert(taxasGatewayEvento).values({
@@ -287,7 +299,6 @@ export class EventsService {
         });
       }
 
-      // Gerar e registrar transações diárias
       const dias = gerarIntervaloDeDatas(data_inicio, data_fim);
       const transacoesZeradas = dias.flatMap(data =>
         lojas.map(loja => ({
@@ -301,7 +312,6 @@ export class EventsService {
           status: 'pendente',
         })),
       );
-
       await trx.insert(transacoesDiarias).values(transacoesZeradas);
 
       return evento;

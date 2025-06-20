@@ -15,6 +15,13 @@
       "when": 1749261013089,
       "tag": "0001_unusual_cannonball",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1750428171184,
+      "tag": "0002_military_felicia_hardy",
+      "breakpoints": true
     }
   ]
 }
