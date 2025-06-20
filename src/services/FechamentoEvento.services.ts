@@ -8,6 +8,7 @@ import {
   taxasPersonalizadasLoja,
   eventoLojas,
   lojas,
+  eventoLojaComissionado,
 } from '../database/schema';
 import { eq, inArray } from 'drizzle-orm';
 
@@ -80,17 +81,12 @@ export class FechamentoEventoService {
     }
 
     const antecipacoes = await db
-      .select({
-        lojaId: eventoLojas.lojaId,
-        haveraAntecipacao: eventoLojas.haveraAntecipacao,
-      })
+      .select({ lojaId: eventoLojas.lojaId, haveraAntecipacao: eventoLojas.haveraAntecipacao })
       .from(eventoLojas)
       .where(eq(eventoLojas.eventoId, eventoId));
 
     const antecipacaoPorLoja: Record<string, boolean> = {};
-    for (const a of antecipacoes) {
-      antecipacaoPorLoja[a.lojaId] = a.haveraAntecipacao;
-    }
+    for (const a of antecipacoes) antecipacaoPorLoja[a.lojaId] = a.haveraAntecipacao;
 
     const lojaConfigs: Record<string, { nome: string; usaTaxasPersonalizadas: boolean }> = {};
     for (const loja of lojasInfo) {
@@ -100,38 +96,27 @@ export class FechamentoEventoService {
       };
     }
 
-    const percentualComissao = comissionados.reduce((acc, c) => acc + Number(c.percentual), 0) / 100;
+    const comissoesPersonalizadas = await db
+      .select({
+        lojaId: eventoLojaComissionado.lojaId,
+        comissionadoId: eventoLojaComissionado.comissionadoId,
+        percentual: eventoLojaComissionado.percentualCustomizado,
+      })
+      .from(eventoLojaComissionado)
+      .where(eq(eventoLojaComissionado.eventoId, eventoId));
 
     const resultadoFinal: Record<
       string,
       {
         nome: string;
-        modalidades: Record<
-          Modalidade,
-          {
-            valor_bruto: number;
-            comissao: number;
-            taxa_evento: number;
-            taxa_gateway: number;
-            repasse_loja: number;
-            lucro_pdvs: number;
-          }
-        >;
+        modalidades: Record<Modalidade, any>;
+        totalRepasseFinal: number; // <-- novo campo agregado
       }
     > = {};
 
     for (const [lojaId, modalidades] of Object.entries(porLoja)) {
-      const resultadoPorModalidade = {} as Record<
-        Modalidade,
-        {
-          valor_bruto: number;
-          comissao: number;
-          taxa_evento: number;
-          taxa_gateway: number;
-          repasse_loja: number;
-          lucro_pdvs: number;
-        }
-      >;
+      const resultadoPorModalidade = {} as Record<Modalidade, any>;
+      let totalRepasseFinal = 0;
 
       const lojaCfg = lojaConfigs[lojaId];
       const usaTaxasPersonalizadas = lojaCfg?.usaTaxasPersonalizadas ?? false;
@@ -152,10 +137,18 @@ export class FechamentoEventoService {
           continue;
         }
 
-        // Comissão sobre o bruto
-        const comissao = Number((bruto * percentualComissao).toFixed(4));
+        // Comissão
+        let totalComissao = 0;
+        for (const com of comissionados) {
+          const personalizada = comissoesPersonalizadas.find(
+            c => c.lojaId === lojaId && c.comissionadoId === com.comissionadoId,
+          );
+          const percentual = personalizada ? Number(personalizada.percentual) : Number(com.percentual);
+          totalComissao += (percentual / 100) * bruto;
+        }
+        const comissao = Number(totalComissao.toFixed(4));
 
-        // Taxa do evento sobre o bruto
+        // Taxa do evento
         let taxaEventoPercent = 0;
         if (mod === 'credito') {
           if (antecipar) {
@@ -173,21 +166,28 @@ export class FechamentoEventoService {
 
         const taxaEvento = Number((bruto * taxaEventoPercent).toFixed(4));
 
-        // Taxa gateway sobre a taxa do evento
+        // Taxa do gateway
         let taxaGatewayPercent = 0;
         if (mod === 'credito' && antecipar) {
-          const taxaCredito = Number(taxasGateway?.credito ?? 0);
-          const taxaAntecipacao = Number(taxasGateway?.antecipacao ?? 0);
-          taxaGatewayPercent = (taxaCredito + taxaAntecipacao) / 100;
+          taxaGatewayPercent = (Number(taxasGateway?.credito ?? 0) + Number(taxasGateway?.antecipacao ?? 0)) / 100;
         } else {
           taxaGatewayPercent = Number(taxasGateway?.[mod] ?? 0) / 100;
         }
 
         const taxaGateway = Number((bruto * taxaGatewayPercent).toFixed(4));
 
-        // Repasse final = bruto - comissão - taxa evento
-        const repasseLoja = Number((bruto - comissao - taxaEvento).toFixed(4));
+        // Repasse para loja (sem subtrair dinheiro aqui)
+        let repasseLoja = Number((bruto - comissao - taxaEvento).toFixed(4));
+        if (mod === 'credito' && !antecipar) {
+          repasseLoja = 0;
+        }
+
         const lucroPdvs = Number((taxaEvento - taxaGateway).toFixed(4));
+
+        // Acumular repasse total (exceto para dinheiro)
+        if (mod !== 'dinheiro') {
+          totalRepasseFinal += repasseLoja;
+        }
 
         resultadoPorModalidade[mod] = {
           valor_bruto: bruto,
@@ -202,6 +202,7 @@ export class FechamentoEventoService {
       resultadoFinal[lojaId] = {
         nome: lojaCfg?.nome ?? 'Loja desconhecida',
         modalidades: resultadoPorModalidade,
+        totalRepasseFinal, // agregado final excluindo dinheiro
       };
     }
 

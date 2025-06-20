@@ -169,6 +169,15 @@ export class EventsService {
       .innerJoin(comissionados, eq(eventoComissionados.comissionadoId, comissionados.id))
       .where(eq(eventoComissionados.eventoId, id));
 
+    const comissoesPersonalizadas = await db
+      .select({
+        lojaId: eventoLojaComissionado.lojaId,
+        comissionadoId: eventoLojaComissionado.comissionadoId,
+        percentual_customizado: eventoLojaComissionado.percentualCustomizado,
+      })
+      .from(eventoLojaComissionado)
+      .where(eq(eventoLojaComissionado.eventoId, id));
+
     const [taxaPorGateway] = await db
       .select({
         id: taxasGateway.id,
@@ -198,6 +207,7 @@ export class EventsService {
         taxas_personalizadas: loja.usa_taxas_personalizadas ? taxasMapeadas.get(loja.id) : undefined,
       })),
       comissionados: comissionadosDoEvento,
+      loja_comissionados: comissoesPersonalizadas, // ✅ novo campo incluído
     };
   }
 
