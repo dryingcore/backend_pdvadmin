@@ -23,6 +23,10 @@ app.register(taxasPorGatewayRoutes);
 app.register(transacoesDiariasRoutes);
 app.register(fechamentoEventoRoutes);
 
+app.get('/health', () => {
+  return 200;
+});
+
 app.listen({ port: 3000 }, () => {
   console.log('🚀 Servidor rodando em http://localhost:3000');
 });
