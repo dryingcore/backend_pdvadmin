@@ -64,11 +64,11 @@ export default class LojasController {
         chave_pix?: string;
         usa_taxas_personalizadas?: boolean;
         taxas?: {
-          dinheiro?: string;
-          debito?: string;
-          credito?: string;
-          pix?: string;
-          antecipacao?: string;
+          dinheiro: string;
+          debito: string;
+          credito: string;
+          pix: string;
+          antecipacao: string;
         };
       }>;
 

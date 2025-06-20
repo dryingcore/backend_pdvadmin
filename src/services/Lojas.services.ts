@@ -111,6 +111,13 @@ export class LojasService {
       chave_pix?: string;
       info_bancaria?: string;
       usa_taxas_personalizadas?: boolean;
+      taxas?: {
+        dinheiro: string;
+        debito: string;
+        credito: string;
+        pix: string;
+        antecipacao: string;
+      };
     }>,
   ) {
     const valoresAtualizados: typeof lojas.$inferInsert = {
@@ -129,6 +136,34 @@ export class LojasService {
     } as any;
 
     await db.update(lojas).set(valoresAtualizados).where(eq(lojas.id, id));
+
+    const usaTaxas = data.usa_taxas_personalizadas;
+
+    if (usaTaxas) {
+      if (!data.taxas) {
+        throw new Error('Taxas personalizadas devem ser fornecidas quando usa_taxas_personalizadas é true.');
+      }
+
+      const existente = await db.select().from(taxasPersonalizadasLoja).where(eq(taxasPersonalizadasLoja.lojaId, id));
+
+      const novaTaxa: typeof taxasPersonalizadasLoja.$inferInsert = {
+        lojaId: id,
+        dinheiro: data.taxas.dinheiro,
+        debito: data.taxas.debito,
+        credito: data.taxas.credito,
+        pix: data.taxas.pix,
+        antecipacao: data.taxas.antecipacao,
+      };
+
+      if (existente.length > 0) {
+        await db.update(taxasPersonalizadasLoja).set(novaTaxa).where(eq(taxasPersonalizadasLoja.lojaId, id));
+      } else {
+        await db.insert(taxasPersonalizadasLoja).values(novaTaxa);
+      }
+    } else {
+      // Se antes existia e agora desativou as taxas, remover
+      await db.delete(taxasPersonalizadasLoja).where(eq(taxasPersonalizadasLoja.lojaId, id));
+    }
 
     return this.buscarPorId(id);
   }
