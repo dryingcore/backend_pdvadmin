@@ -9,6 +9,8 @@ export const comissionados = pgTable('comissionados', {
   usaContaBancaria: boolean('usa_conta_bancaria').notNull().default(false),
   banco: text('banco'),
   agencia: text('agencia'),
+  documento: text('documento'),
+  whatsapp: text('whatsapp'),
   conta: text('conta'),
   criadoEm: timestamp('criado_em').notNull().defaultNow(),
   atualizadoEm: timestamp('atualizado_em'),

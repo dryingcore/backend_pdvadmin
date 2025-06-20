@@ -4,12 +4,14 @@ import { eq } from 'drizzle-orm';
 
 export interface ComissionadoInput {
   nome: string;
-  responsavel?: string;
-  chave_pix?: string;
+  responsavel: string;
+  chave_pix: string;
   usa_conta_bancaria: boolean;
   banco?: string;
   agencia?: string;
   conta?: string;
+  documento: string;
+  whatsapp: string;
 }
 
 export class ComissionadosService {
