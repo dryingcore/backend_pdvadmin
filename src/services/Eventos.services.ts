@@ -291,13 +291,15 @@ export class EventsService {
       await trx.insert(eventoComissionados).values(comissionadosEvento);
 
       for (const com of comissionados) {
-        if (com.porLoja) {
-          const personalizados = Object.entries(com.porLoja).map(([lojaId, percentual]) => ({
-            eventoId: evento.id,
-            lojaId,
-            comissionadoId: com.id,
-            percentualCustomizado: percentual,
-          }));
+        const porLoja = com.porLoja ?? {};
+        const personalizados = Object.entries(porLoja).map(([lojaId, percentual]) => ({
+          eventoId: evento.id,
+          lojaId,
+          comissionadoId: com.id,
+          percentualCustomizado: percentual,
+        }));
+
+        if (personalizados.length > 0) {
           await trx.insert(eventoLojaComissionado).values(personalizados);
         }
       }
