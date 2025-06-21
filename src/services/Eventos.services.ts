@@ -351,9 +351,11 @@ export class EventsService {
     if (!dataEhMenorOuIgual(data_inicio, data_fim)) {
       throw new Error('A data de início não pode ser posterior à data de fim.');
     }
+
     if (!status || typeof status !== 'string' || !status.trim()) {
       throw new Error('Status do evento é obrigatório.');
     }
+
     if (!Array.isArray(lojas) || lojas.length === 0) {
       throw new Error('Pelo menos uma loja deve ser vinculada ao evento.');
     }
@@ -367,17 +369,24 @@ export class EventsService {
     }
 
     if (!Array.isArray(comissionados)) throw new Error('Lista de comissionados inválida.');
-    for (const com of comissionados) {
-      if (
-        typeof com.id !== 'string' ||
-        !com.id.trim() ||
-        typeof com.percentual !== 'number' ||
-        com.percentual < 0 ||
-        com.percentual > 100
-      ) {
+
+    const comissionadosValidados = comissionados.map(com => {
+      const percentual = Number(com.percentual);
+
+      if (typeof com.id !== 'string' || !com.id.trim() || isNaN(percentual) || percentual < 0 || percentual > 100) {
         throw new Error(`Comissionado inválido: ${JSON.stringify(com)}`);
       }
-    }
+
+      if (com.porLoja && Object.keys(com.porLoja).length === 0) {
+        delete com.porLoja;
+      }
+
+      return {
+        eventoId: id,
+        comissionadoId: com.id,
+        percentual: percentual.toString(),
+      };
+    });
 
     return await db.transaction(async trx => {
       const [evento] = await trx
@@ -412,12 +421,36 @@ export class EventsService {
       await trx.insert(eventoLojas).values(lojasEvento);
 
       await trx.delete(eventoComissionados).where(eq(eventoComissionados.eventoId, id));
-      const comissionadosEvento = comissionados.map(com => ({
-        eventoId: id,
-        comissionadoId: com.id,
-        percentual: com.percentual.toString(),
-      }));
-      await trx.insert(eventoComissionados).values(comissionadosEvento);
+      await trx.insert(eventoComissionados).values(comissionadosValidados);
+
+      // ✅ INSERIR TRANSAÇÕES DIÁRIAS ZERADAS PARA NOVAS LOJAS
+      const dias = gerarIntervaloDeDatas(data_inicio, data_fim);
+
+      const transacoesExistentes = await trx
+        .selectDistinct({ lojaId: transacoesDiarias.lojaId })
+        .from(transacoesDiarias)
+        .where(eq(transacoesDiarias.eventoId, id));
+
+      const lojasComTransacao = new Set(transacoesExistentes.map(t => t.lojaId));
+
+      const novasTransacoes = dias.flatMap(data =>
+        lojas
+          .filter(loja => !lojasComTransacao.has(loja.id))
+          .map(loja => ({
+            eventoId: id,
+            lojaId: loja.id,
+            dataTransacao: data,
+            dinheiro: '0.00',
+            debito: '0.00',
+            credito: '0.00',
+            pix: '0.00',
+            status: 'pendente',
+          })),
+      );
+
+      if (novasTransacoes.length > 0) {
+        await trx.insert(transacoesDiarias).values(novasTransacoes);
+      }
 
       return evento;
     });
