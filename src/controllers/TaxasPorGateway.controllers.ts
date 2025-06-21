@@ -1,5 +1,9 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { TaxasPorGatewayService, type CriarTaxaGatewayInput } from '../services/TaxasPorGateway.services';
+import {
+  TaxasPorGatewayService,
+  type CriarTaxaGatewayInput,
+  type AtualizarTaxaGatewayInput,
+} from '../services/TaxasPorGateway.services';
 
 export default class TaxasPorGatewayController {
   private readonly service = new TaxasPorGatewayService();
@@ -31,6 +35,25 @@ export default class TaxasPorGatewayController {
     try {
       const taxa = await this.service.criarTaxa(request.body);
       return reply.status(201).send(taxa);
+    } catch (err: any) {
+      console.error(err);
+      return reply.status(400).send({ error: err.message });
+    }
+  }
+
+  async atualizarTaxa(
+    request: FastifyRequest<{ Params: { id: string }; Body: AtualizarTaxaGatewayInput }>,
+    reply: FastifyReply,
+  ) {
+    try {
+      const _id = request.params.id;
+
+      const taxa = await this.service.atualizarTaxa(_id, request.body);
+
+      return reply.status(200).send({
+        message: 'Taxa atualizada com sucesso.',
+        data: taxa,
+      });
     } catch (err: any) {
       console.error(err);
       return reply.status(400).send({ error: err.message });

@@ -6,5 +6,6 @@ export async function taxasPorGatewayRoutes(app: FastifyInstance) {
 
   app.get('/taxas-gateway', controller.listarTodos.bind(controller));
   app.get('/taxas-gateway/:gateway', controller.buscarPorGateway.bind(controller));
+  app.put('/taxas-gateway/:id', controller.atualizarTaxa.bind(controller));
   app.post('/taxas-gateway', controller.criarTaxa.bind(controller));
 }

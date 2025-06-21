@@ -11,6 +11,8 @@ export interface CriarTaxaGatewayInput {
   antecipacao: string;
 }
 
+export interface AtualizarTaxaGatewayInput extends CriarTaxaGatewayInput {}
+
 export class TaxasPorGatewayService {
   async listarTodos() {
     return db.select().from(taxasGateway);
@@ -41,5 +43,30 @@ export class TaxasPorGatewayService {
       .returning();
 
     return inserido;
+  }
+
+  async atualizarTaxa(id: string, data: AtualizarTaxaGatewayInput) {
+    if (!id.trim()) {
+      throw new Error('ID do gateway inválido.');
+    }
+
+    const [taxaExistente] = await db.select().from(taxasGateway).where(eq(taxasGateway.id, id));
+    if (!taxaExistente) {
+      throw new Error(`Nenhuma taxa encontrada para o gateway "${id}".`);
+    }
+
+    const [atualizado] = await db
+      .update(taxasGateway)
+      .set({
+        debito: data.debito,
+        credito: data.credito,
+        pix: data.pix,
+        dinheiro: data.dinheiro,
+        antecipacao: data.antecipacao,
+      })
+      .where(eq(taxasGateway.id, id))
+      .returning();
+
+    return atualizado;
   }
 }
